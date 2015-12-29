@@ -95,7 +95,7 @@ typedef struct _PROCESS_BASIC_INFORMATION
   PVOID Reserved3;
 } PROCESS_BASIC_INFORMATION;
 
-DWORD guessExecutableEntryPoint (HANDLE globalhProcess, DWORD baseaddr);
+UINT_PTR guessExecutableEntryPoint (HANDLE globalhProcess, UINT_PTR baseaddr);
 int exists(const char *fname);
 char *fullpath(char *dllName);
 
@@ -452,8 +452,8 @@ int main(int argc,char **argv)
 
 	printf(" [INFO] peb.ImageBaseAddress = %p\n", globalPEB.ImageBaseAddress);
 
-	unsigned long entryPoint = guessExecutableEntryPoint (hProcess, (DWORD) globalPEB.ImageBaseAddress);
-	printf(" [INFO] entryPoint = %08x\n", entryPoint);
+	UINT_PTR entryPoint = guessExecutableEntryPoint (hProcess, globalPEB.ImageBaseAddress);
+	printf(" [INFO] entryPoint = 0x%8x\n", entryPoint);
 
 	char oldEntryChars[2];
 	DWORD oldProtect = 0;
@@ -556,7 +556,7 @@ int main(int argc,char **argv)
 	return 0;
 }
 
-DWORD guessExecutableEntryPoint (HANDLE globalhProcess, DWORD baseaddr)
+UINT_PTR guessExecutableEntryPoint (HANDLE globalhProcess, UINT_PTR baseaddr)
 {
   IMAGE_DOS_HEADER imgDosHdr;
   IMAGE_NT_HEADERS imgNtHdr;
@@ -565,21 +565,21 @@ DWORD guessExecutableEntryPoint (HANDLE globalhProcess, DWORD baseaddr)
   memset (&imgDosHdr, 0, sizeof (IMAGE_DOS_HEADER));
   memset (&imgNtHdr, 0, sizeof (IMAGE_NT_HEADERS));
 
-  ReadProcessMemory (globalhProcess, (LPDWORD) baseaddr, &imgDosHdr,
+  ReadProcessMemory (globalhProcess, (LPCVOID ) baseaddr, &imgDosHdr,
                      sizeof (IMAGE_DOS_HEADER), &bR);
 
   if (bR != sizeof (IMAGE_DOS_HEADER))
     {
-      printf (" [FAIL] could not read IMAGE_DOS_HEADER\n");
+      printf (" [FAIL] could not read IMAGE_DOS_HEADER (read %x bytes)\n",bR);
       return 0;
     }
 
   ReadProcessMemory (globalhProcess,
-                     (LPDWORD) (baseaddr + imgDosHdr.e_lfanew), &imgNtHdr,
+                     (LPCVOID ) (baseaddr + imgDosHdr.e_lfanew), &imgNtHdr,
                      sizeof (IMAGE_NT_HEADERS), &bR);
   if (bR != sizeof (IMAGE_NT_HEADERS))
     {
-      printf (" [INFO] could not read IMAGE_NT_HEADERS\n");
+      printf (" [INFO] could not read IMAGE_NT_HEADERS (read %x bytes)\n",bR);
       return 0;
     }
 
