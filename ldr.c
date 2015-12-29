@@ -2,17 +2,22 @@
 #include <stdlib.h>
 #include <windows.h>
 #include <tlhelp32.h>
+#include "peb.h"
+
+// https://www.virtualbox.org/svn/vbox/trunk/src/VBox/HostDrivers/Support/testcase/tstNtQueryStuff.cpp
+
 
 #ifdef ARCHI_64
 	#define ARCHI 64
 	#define PC_REG Rip
 	#define REGISTER_LENGTH DWORD64
+	#define PEB_ARCHI PEB64
 #else
 	#define ARCHI 32
 	#define PC_REG Eip
 	#define REGISTER_LENGTH DWORD
+	#define PEB_ARCHI PEB32
 #endif
-
 
 void chomp(char *s);
 char *guessWorkDir (char *path);
@@ -26,7 +31,7 @@ char *globalWorkingDirectory = NULL;
 typedef DWORD (WINAPI * _DebugBreakProcess) (HANDLE);
 typedef DWORD (WINAPI * _DebugActiveProcessStop) (DWORD);
 typedef HANDLE (WINAPI * _OpenThread) (DWORD, BOOL, DWORD);
-typedef DWORD (WINAPI * _NtQueryInformationProcess) (HANDLE, DWORD, DWORD, DWORD, DWORD);
+typedef DWORD (WINAPI * _NtQueryInformationProcess) (HANDLE, int , PVOID, ULONG, size_t *);
 
 _NtQueryInformationProcess NtQueryInformationProcess;
 
@@ -41,72 +46,6 @@ int globalInject = 0;
 char *globalDll = NULL;
 char *stringToMatch = NULL;
 int opMode = OPMODE_DEFAULT;
-
-typedef struct _PEB
-{
-  BOOLEAN InheritedAddressSpace;
-  BOOLEAN ReadImageFileExecOptions;
-  BOOLEAN BeingDebugged;
-  BOOLEAN Spare;
-  HANDLE Mutant;
-  PVOID ImageBaseAddress;
-  PVOID LoaderData;
-  // PPEB_LDR_DATA LoaderData;
-  PVOID ProcessParameters;
-  // PRTL_USER_PROCESS_PARAMETERS ProcessParameters;
-  PVOID SubSystemData;
-  PVOID ProcessHeap;
-  PVOID FastPebLock;
-  PVOID FastPebLockRoutine;
-  // PPEBLOCKROUTINE FastPebLockRoutine;
-  PVOID FastPebUnlockRoutine;
-  // PPEBLOCKROUTINE FastPebUnlockRoutine; 
-  ULONG EnvironmentUpdateCount;
-  PVOID KernelCallbackTable;
-  // PPVOID KernelCallbackTable;
-  PVOID EventLogSection;
-  PVOID EventLog;
-  PVOID FreeList;
-  // PPEB_FREE_BLOCK FreeList; 
-  ULONG TlsExpansionCounter;
-  PVOID TlsBitmap;
-  ULONG TlsBitmapBits[0x2];
-  PVOID ReadOnlySharedMemoryBase;
-  PVOID ReadOnlySharedMemoryHeap;
-  PVOID ReadOnlyStaticServerData;
-  // PPVOID ReadOnlyStaticServerData; 
-  PVOID AnsiCodePageData;
-  PVOID OemCodePageData;
-  PVOID UnicodeCaseTableData;
-  ULONG NumberOfProcessors;
-  ULONG NtGlobalFlag;
-  BYTE Spare2[0x4];
-  LARGE_INTEGER CriticalSectionTimeout;
-  ULONG HeapSegmentReserve;
-  ULONG HeapSegmentCommit;
-  ULONG HeapDeCommitTotalFreeThreshold;
-  ULONG HeapDeCommitFreeBlockThreshold;
-  ULONG NumberOfHeaps;
-  ULONG MaximumNumberOfHeaps;
-  PVOID ProcessHeaps;
-  // PPVOID *ProcessHeaps;
-  PVOID GdiSharedHandleTable;
-  PVOID ProcessStarterHelper;
-  PVOID GdiDCAttributeList;
-  PVOID LoaderLock;
-  ULONG OSMajorVersion;
-  ULONG OSMinorVersion;
-  ULONG OSBuildNumber;
-  ULONG OSPlatformId;
-  ULONG ImageSubSystem;
-  ULONG ImageSubSystemMajorVersion;
-  ULONG ImageSubSystemMinorVersion;
-  ULONG GdiHandleBuffer[0x22];
-  ULONG PostProcessInitRoutine;
-  ULONG TlsExpansionBitmap;
-  BYTE TlsExpansionBitmapBits[0x80];
-  ULONG SessionId;
-} PEB, *PPEB;
 
 typedef struct _LSA_UNICODE_STRING
 {
@@ -150,7 +89,7 @@ typedef struct _PROCESS_PARAMETERS
 typedef struct _PROCESS_BASIC_INFORMATION
 {
   PVOID Reserved1;
-  PPEB PebBaseAddress;
+  PVOID PebBaseAddress;
   PVOID Reserved2[2];
   ULONG_PTR UniqueProcessId;
   PVOID Reserved3;
@@ -495,10 +434,10 @@ int main(int argc,char **argv)
 	printf(" [INFO] process handle is %08x\n",(unsigned long )hProcess);
 
 	PROCESS_BASIC_INFORMATION pib;
-	PEB globalPEB;
+	PEB_ARCHI globalPEB;
 
-	NtQueryInformationProcess (hProcess, 0, (DWORD) & pib, sizeof (pib), (DWORD) & bW);
-	printf(" [INFO] pib.PebBaseAddress = %08x\n", (unsigned long )pib.PebBaseAddress);
+	NtQueryInformationProcess (hProcess, 0, (PVOID )(&pib), sizeof (pib),& bW);
+	printf(" [INFO] pib.PebBaseAddress = 0x%x (size of field is %d)\n", pib.PebBaseAddress, sizeof(pib.PebBaseAddress));
 
 	ReadProcessMemory (hProcess, pib.PebBaseAddress, &globalPEB, sizeof (globalPEB), &bR);
 	if (bR != sizeof (globalPEB))
@@ -511,7 +450,7 @@ int main(int argc,char **argv)
 		return 0;
     }
 
-	printf(" [INFO] peb.ImageBaseAddress = %08x\n", (unsigned long )globalPEB.ImageBaseAddress);
+	printf(" [INFO] peb.ImageBaseAddress = %p\n", globalPEB.ImageBaseAddress);
 
 	unsigned long entryPoint = guessExecutableEntryPoint (hProcess, (DWORD) globalPEB.ImageBaseAddress);
 	printf(" [INFO] entryPoint = %08x\n", entryPoint);
