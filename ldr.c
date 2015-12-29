@@ -3,7 +3,6 @@
 #include <windows.h>
 #include <tlhelp32.h>
 
-
 void chomp(char *s);
 char *guessWorkDir (char *path);
 HANDLE createNewProcess (char *exeName, char *workingDirectory);
