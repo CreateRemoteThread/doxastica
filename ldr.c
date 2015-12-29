@@ -3,6 +3,17 @@
 #include <windows.h>
 #include <tlhelp32.h>
 
+#ifdef ARCHI_64
+	#define ARCHI 64
+	#define PC_REG Rip
+	#define REGISTER_LENGTH DWORD64
+#else
+	#define ARCHI 32
+	#define PC_REG Eip
+	#define REGISTER_LENGTH DWORD
+#endif
+
+
 void chomp(char *s);
 char *guessWorkDir (char *path);
 HANDLE createNewProcess (char *exeName, char *workingDirectory);
@@ -335,7 +346,7 @@ void injectIntoProcess(int processId, char *dllInput)
 		return;
 	}
 
-	DWORD bW = 0, bR = 0;
+	size_t bW = 0, bR = 0;
 	printf(" [INFO] attempting to create data cave\n");
 	LPVOID remoteMemory = VirtualAllocEx(hProcess,NULL,strlen(dllInput) + 1,MEM_COMMIT + MEM_RESERVE, PAGE_READWRITE);
 	WriteProcessMemory(hProcess,(LPVOID )remoteMemory,dllInput,strlen(dllInput) + 1,&bW);
@@ -380,7 +391,7 @@ int main(int argc,char **argv)
 {
 	parseArgs(argc, argv);
 
-	DWORD bW = 0, bR = 0;
+	size_t bW = 0, bR = 0;
 	char *exeInput = (char *)malloc(MAX_PATH);
 	char *dllInput = (char *)malloc(MAX_PATH);
 	char *wdrInput = (char *)malloc(MAX_PATH);
@@ -534,7 +545,7 @@ int main(int argc,char **argv)
 	context.ContextFlags = CONTEXT_FULL;
 
 	GetThreadContext (hThread, &context);
-	context.Eip = entryPoint;
+	context.PC_REG = entryPoint;
 	SetThreadContext(hThread,&context);
 	ResumeThread(pi.hThread);
 
@@ -594,7 +605,7 @@ int main(int argc,char **argv)
 	VirtualProtectEx(hProcess,(LPVOID )entryPoint,1, oldProtect, &discardProtect);
 	printf(" [INFO] entry restored to %02x %02x\n", (unsigned char )newEntryChars[0],(unsigned char )newEntryChars[1]);
 	GetThreadContext (hThread, &context);
-	context.Eip = entryPoint;
+	context.PC_REG = entryPoint;
 	SetThreadContext(hThread,&context);
 	ResumeThread(pi.hThread);
 	
@@ -610,7 +621,7 @@ DWORD guessExecutableEntryPoint (HANDLE globalhProcess, DWORD baseaddr)
 {
   IMAGE_DOS_HEADER imgDosHdr;
   IMAGE_NT_HEADERS imgNtHdr;
-  DWORD bR;
+  size_t bR;
 
   memset (&imgDosHdr, 0, sizeof (IMAGE_DOS_HEADER));
   memset (&imgNtHdr, 0, sizeof (IMAGE_NT_HEADERS));

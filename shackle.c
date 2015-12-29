@@ -50,7 +50,7 @@ unsigned long newRecv(unsigned long socket, char *buf, unsigned long len, unsign
 #define INTEL_MAXINSTRLEN 15
 #define FUNCTION_TAILLEN 7
 
-// need to ~document~ this much more clearly.
+// 32-bit into 32-bit, 64-bit into 64-bit.
 
 void hook(char *addressFrom, char *addressTo, unsigned long *saveAddress)
 {
@@ -91,7 +91,6 @@ void hook(char *addressFrom, char *addressTo, unsigned long *saveAddress)
 	p[0] = (DWORD )(addressTo - ((unsigned long ) addressFrom   + 5));
 	VirtualProtect(addressFrom,7,oldProtect,&unused);
 
-
 	/*
 
 	  hook structure:
@@ -121,52 +120,9 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
     if(fdwReason == DLL_PROCESS_ATTACH && init == 0)
       {
         init = 1;
-		
+		OutputDebugString("SUCCESS\n");
 		hook((char *)(GetProcAddress(LoadLibrary("user32"),"MessageBoxA")),(char *)&newMessageBox,(unsigned long *)&oldMessageBox);
 		return TRUE;
       }
   return TRUE;
 }
-
-/*
-
-void lookAhead(HANDLE hProcess, HANDLE hThread, LPVOID pc_, DISASM *d)
-{
-	// nicked this from phantasm
-
-	char memChunk[15];
-	SIZE_T bR = 0;
-
-	LPVOID pc = pc_;
-
-	if(pc == NULL && hThread != NULL)
-	{
-		CONTEXT c;
-		c.ContextFlags = CONTEXT_FULL;
-		GetThreadContext(hThread,&c);
-		pc = (LPVOID )c.PC_REG;
-	}
-
-	ReadProcessMemory(hProcess,pc,(LPVOID )memChunk,15,&bR);
-	memset(d,0,sizeof(DISASM));
-	d->Archi = ARCHI;
-	d->EIP = (UIntPtr )memChunk;
-
-	// prettyPrint(memChunk);
-	// why does this get pretty-printed twice?☼
-	int len = Disasm(d);
-	if(flag_displayDisassembly == 1)
-	{
-		int i = 0;
-		printf(" %x:",pc);
-		for(; i < len;i++)
-		{
-			printf("%02x",(unsigned char )memChunk[i]);
-		}
-		printf(" ");
-	}
-
-	return;
-}
-
-*/
