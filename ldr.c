@@ -6,7 +6,6 @@
 
 // https://www.virtualbox.org/svn/vbox/trunk/src/VBox/HostDrivers/Support/testcase/tstNtQueryStuff.cpp
 
-
 #ifdef ARCHI_64
 	#define ARCHI 64
 	#define PC_REG Rip
@@ -31,7 +30,7 @@ char *globalWorkingDirectory = NULL;
 typedef DWORD (WINAPI * _DebugBreakProcess) (HANDLE);
 typedef DWORD (WINAPI * _DebugActiveProcessStop) (DWORD);
 typedef HANDLE (WINAPI * _OpenThread) (DWORD, BOOL, DWORD);
-typedef DWORD (WINAPI * _NtQueryInformationProcess) (HANDLE, int , PVOID, ULONG, size_t *);
+typedef DWORD (WINAPI * _NtQueryInformationProcess) (HANDLE, int , PVOID, ULONG, SIZE_T *);
 
 _NtQueryInformationProcess NtQueryInformationProcess;
 
@@ -285,7 +284,7 @@ void injectIntoProcess(int processId, char *dllInput)
 		return;
 	}
 
-	size_t bW = 0, bR = 0;
+	SIZE_T bW = 0, bR = 0;
 	printf(" [INFO] attempting to create data cave\n");
 	LPVOID remoteMemory = VirtualAllocEx(hProcess,NULL,strlen(dllInput) + 1,MEM_COMMIT + MEM_RESERVE, PAGE_READWRITE);
 	WriteProcessMemory(hProcess,(LPVOID )remoteMemory,dllInput,strlen(dllInput) + 1,&bW);
@@ -330,7 +329,7 @@ int main(int argc,char **argv)
 {
 	parseArgs(argc, argv);
 
-	size_t bW = 0, bR = 0;
+	SIZE_T bW = 0, bR = 0;
 	char *exeInput = (char *)malloc(MAX_PATH);
 	char *dllInput = (char *)malloc(MAX_PATH);
 	char *wdrInput = (char *)malloc(MAX_PATH);
@@ -560,7 +559,7 @@ UINT_PTR guessExecutableEntryPoint (HANDLE globalhProcess, UINT_PTR baseaddr)
 {
   IMAGE_DOS_HEADER imgDosHdr;
   IMAGE_NT_HEADERS imgNtHdr;
-  size_t bR;
+  SIZE_T bR;
 
   memset (&imgDosHdr, 0, sizeof (IMAGE_DOS_HEADER));
   memset (&imgNtHdr, 0, sizeof (IMAGE_NT_HEADERS));

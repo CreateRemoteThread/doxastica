@@ -25,6 +25,9 @@ IF [%1]==[bea64] cd ..
 IF [%1]==[test64] cl /O2 /Zi /c /Tp test64.c
 IF [%1]==[test64] link /out:test64.exe test64.obj user32.lib
 
+IF [%1]==[test32] cl /O2 /Zi /c /Tp test64.c
+IF [%1]==[test32] link /out:test32.exe test64.obj user32.lib
+
 IF [%1] EQU [] ECHO build {target}. Valid targets are:
 IF [%1] EQU [] ECHO ++ bea32
 IF [%1] EQU [] ECHO ++ bea64

@@ -196,8 +196,6 @@ void hook(UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress)
 	memset(codeCave,'\xCC',totalSize);
 	memcpy(codeCave,(LPVOID )addressFrom,totalSize);
 
-	
-
 	#if ARCHI == 32
 		codeCave[totalSize] = '\xE9';
 		DWORD *cp = (DWORD *)((unsigned long )codeCave + totalSize + 1);
@@ -226,7 +224,7 @@ void hook(UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress)
 		addressFromWrite[0] = '\xE9';
 		DWORD *p =  (DWORD *)((unsigned long ) addressFromWrite + 1 );
 		p[0] = (DWORD )(addressTo - ((unsigned long ) addressFrom   + 5));
-		VirtualProtect(addressFrom,7,oldProtect,&unused);
+		VirtualProtect((LPVOID )addressFrom,7,oldProtect,&unused);
 	#else
 		// on 64-bit systems, search for a 14-byte cave we can jmp to within 0xFFFF
 		// this way, we destroy only 5 bytes of the original prelude
@@ -244,6 +242,7 @@ void hook(UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress)
 			p1[0] -= 5; // offset of current 5-byte instruction =)
 			// stage 2 trampoline - JMP [RIP+0] DQ [absolute oldMessageBoxA]
 			unsigned char *shortCaveAddrWrite = (unsigned char *)shortCaveAddr;
+			VirtualProtect((LPVOID )shortCaveAddr,FUNCTION_PATCHLEN,PAGE_READWRITE,&unused);
 			shortCaveAddrWrite[0] = '\xFF';
 			shortCaveAddrWrite[1] = '\x25';
 			shortCaveAddrWrite[2] = '\x00';
@@ -252,7 +251,8 @@ void hook(UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress)
 			shortCaveAddrWrite[5] = '\x00';
 			p = (UINT_PTR *)(shortCaveAddr + 6);
 			p[0] = (UINT_PTR )(addressTo);
-			VirtualProtect((LPVOID )addressFrom,14,oldProtect,&unused);
+			VirtualProtect((LPVOID )shortCaveAddr,FUNCTION_PATCHLEN,PAGE_EXECUTE_READ,&unused);
+			VirtualProtect((LPVOID )addressFrom,FUNCTION_PATCHLEN,oldProtect,&unused);
 		}
 		else
 		{
