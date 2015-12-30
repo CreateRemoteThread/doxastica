@@ -1,0 +1,65 @@
+64-bit hooking notes
+
+shackle64 into test64:
+
+USER32!MessageBoxA:
+00000000`77911344 e9b7fc6e08      jmp     00000000`80001000
+00000000`77911349 cc              int     3
+00000000`7791134a cc              int     3
+00000000`7791134b 44391dea0d0200  cmp     dword ptr [USER32!gapfnScSendMessage+0x927c (00000000`7793213c)],r11d
+00000000`77911352 742e            je      USER32!MessageBoxA+0x3e (00000000`77911382)
+00000000`77911354 65488b042530000000 mov   rax,qword ptr gs:[30h]
+00000000`7791135d 4c8b5048        mov     r10,qword ptr [rax+48h]
+00000000`77911361 33c0            xor     eax,eax
+
+(extend instructions and ret)
+
+0:000> u shackle64!newMessageBox
+shackle64!newMessageBox [c:\projects\elegurawolfe\shackle.c @ 30]:
+00000001`80001000 4883ec28        sub     rsp,28h
+00000001`80001004 488d15d1a20300  lea     rdx,[shackle64!`string' (00000001`8003b2dc)]
+00000001`8000100b ff1517360400    call    qword ptr [shackle64!oldMessageBox (00000001`80044628)]
+00000001`80001011 33c0            xor     eax,eax
+00000001`80001013 4883c428        add     rsp,28h
+00000001`80001017 c3              ret
+00000001`80001018 cc              int     3
+00000001`80001019 cc              int     3
+
+OPTION 1:
+
+- split jump into two dwords
+
+new non-destructive patch is:
+
+68 [01 02 03 04]
+C7 44 24 04 [05 06 07 08]
+C3
+
+RSP:
+ 04030201 08070605
+
+C3 returns to:
+
+g
+
+lol fucking crash yo
+
+OPTION 2:
+This one takes advantage of RIP relative addressing mode, check it out, yo
+
+JMP [RIP+0]
+DQ:
+
+eb user32!MessageBoxA FF 25 00 00 00 00 01 02 03 04 05 06 07 08
+
+(FF 25 [OFFSET - 0] [QWORD OF JUMP])
+
+eb user32!MessageBoxA FF 25 00 00 00 00 AB A4 A4 77 00 00 00 00 
+(this works, but wherever we end up has problems)
+
+try with target:
+00000000`77b0dc70
+
+(this works)
+(14 destroyed bytes total)
+(let's roll with this).
