@@ -30,6 +30,8 @@ typedef DWORD (WINAPI * _MessageBoxA) (DWORD, LPCVOID, LPCVOID, DWORD);
 typedef DWORD (WINAPI * _send) (DWORD, char *, DWORD, DWORD);
 void hook(UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress);
 UINT_PTR searchForShortCave(UINT_PTR addressFrom,int minLength);
+DWORD WINAPI IPCServerThread( LPVOID lpParam );
+DWORD WINAPI IPCServerInstance(LPVOID lpvParam);
 
 _MessageBoxA oldMessageBox = NULL;
 _send oldSend = NULL;
@@ -118,15 +120,17 @@ UINT_PTR searchForShortCave(UINT_PTR addressFrom,int minLength)
 	OutputDebugString("searching for short cave\n");
 	for( i = 0; i < maxSearchLen;i++)
 	{
+		/*
 		sprintf(mbuf,"[%02x]\00",(unsigned char )p[i]);
 		if( i % 16 == 0)
 		{
 			OutputDebugString("\n");
 		}
+		*/
 		OutputDebugString(mbuf);
 		if ((unsigned char )p[i] == (unsigned char )'\xC3')
 		{
-			OutputDebugString("\n ---- FOUND ---- \n");
+			// OutputDebugString("\n ---- FOUND ---- \n");
 			foundAddress = (UINT_PTR )(p + i + 1);
 			for(n = 1;n < minLength;n++)
 			{
@@ -140,7 +144,7 @@ UINT_PTR searchForShortCave(UINT_PTR addressFrom,int minLength)
 			}
 			if(foundAddress)
 			{
-				OutputDebugString("\n + FOUND \n");
+				// OutputDebugString("\n + FOUND \n");
 				return (UINT_PTR )(p + i + 1);
 			}
 		}
@@ -172,7 +176,6 @@ void hook(UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress)
 			shortCutSize = totalSize;
 		}
 	}
-
 
 	//memset(mbuf,0,1024);
 	//sprintf(mbuf," TRYING TO PATCH %x to %x, allocating total len of %d, closest cave %x (searching for cave size %d)\n", addressFrom,addressTo,totalSize, shortCaveAddr, shortCutSize);
@@ -278,7 +281,7 @@ void hook(UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress)
 
 	memset(mbuf,0,1024);
 	#if ARCHI == 32
-	sprintf(mbuf,"* [0x%x] %02x %02x%02x%02x%02x (0x%x)\n",(UINT_PTR )addressFrom,
+	sprintf(mbuf,"* [32-BIT] [0x%x] HOOKED %02x %02x%02x%02x%02x (0x%x)\n",(UINT_PTR )addressFrom,
 													(unsigned char )addressFromWrite[0],
 													(unsigned char )addressFromWrite[1],
 													(unsigned char )addressFromWrite[2],
@@ -286,7 +289,9 @@ void hook(UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress)
 													(unsigned char )addressFromWrite[4],
 													(UINT_PTR )addressTo);
 	#else
-	sprintf(mbuf,"* [64-BIT] [0x%x] %02x %02x%02x%02x%02x%02x%02x %02x%02x%02x%02x%02x%02x%02x%02x (0x%x)\n",(UINT_PTR )addressFrom,
+	if(shortCaveAddr != 0)
+	{
+		sprintf(mbuf,"* [64-BIT] [0x%x] %02x%02x%02x%02x%02x%02x %02x%02x%02x%02x%02x%02x%02x%02x (0x%x)\n",(UINT_PTR )addressFrom,
 													(unsigned char )addressFromWrite[0],
 													(unsigned char )addressFromWrite[1],
 													(unsigned char )addressFromWrite[2],
@@ -302,6 +307,17 @@ void hook(UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress)
 													(unsigned char )addressFromWrite[13],
 													(unsigned char )addressFromWrite[14],
 													(UINT_PTR )addressTo);
+	}
+	else
+	{
+		sprintf(mbuf,"* [64-BIT] [0x%x] HOOKED-SHORTCAVE %02x %02x%02x%02x%02x (0x%x)\n",(UINT_PTR )addressFrom,
+													(unsigned char )addressFromWrite[0],
+													(unsigned char )addressFromWrite[1],
+													(unsigned char )addressFromWrite[2],
+													(unsigned char )addressFromWrite[3],
+													(unsigned char )addressFromWrite[4],
+													(UINT_PTR )shortCaveAddr);
+	}
 	#endif
 	OutputDebugString(mbuf);
 
@@ -310,14 +326,99 @@ void hook(UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress)
 	return;
 }
 
+
+DWORD threadId = 0;
+
 BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
 {
     if(fdwReason == DLL_PROCESS_ATTACH && init == 0)
       {
         init = 1;
-		OutputDebugString("SUCCESS\n");
-		hook((UINT_PTR )(GetProcAddress(LoadLibrary("user32"),"MessageBoxA")),(UINT_PTR )&newMessageBox,(UINT_PTR *)&oldMessageBox);
+		OutputDebugString(" - shackle dll loaded\n");
+		CreateThread(NULL,0,IPCServerThread,NULL,0,&threadId);
+		
 		return TRUE;
       }
   return TRUE;
+}
+
+DWORD WINAPI IPCServerThread( LPVOID lpParam ) 
+{
+	char *mbuf = (char *)malloc(1024);
+	char *pipeName = (char *)malloc(1024);
+	// cuz im a hipster too
+	for(;;)
+	{
+		BOOL   fConnected = FALSE; 
+		DWORD  dwThreadId = 0; 
+		HANDLE hPipe = INVALID_HANDLE_VALUE, hThread = NULL; 
+
+		memset(pipeName,0,1024);
+		sprintf(pipeName,"\\\\.\\pipe\\shackle-%d",GetCurrentProcessId());
+		hPipe = CreateNamedPipe(pipeName,PIPE_ACCESS_DUPLEX, PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT, PIPE_UNLIMITED_INSTANCES, 1024,1024, 0 , NULL);
+		if (hPipe == INVALID_HANDLE_VALUE)
+		{
+			memset(mbuf,0,1024);
+			sprintf(mbuf," CreateNamedPipe failed, GLE = %d\n",GetLastError());
+			OutputDebugString(mbuf);
+			break;
+		}
+
+		fConnected = ConnectNamedPipe(hPipe,NULL) ? TRUE : (GetLastError() == ERROR_PIPE_CONNECTED);
+		if (fConnected)
+		{
+			hThread = CreateThread( NULL, 0, IPCServerInstance, (LPVOID) hPipe, 0, &dwThreadId);
+			if (hThread == NULL)
+			{
+				memset(mbuf,0,1024);
+				sprintf(mbuf," CreateThread (listener instance) failed, GLE = %d\n",GetLastError());
+				OutputDebugString(mbuf);
+				break;
+			}
+		}
+		else
+		{
+			CloseHandle(hPipe);
+		}
+		CloseHandle(hPipe);
+	}
+	free(pipeName);
+	free(mbuf);
+	return 0;
+}
+
+DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
+{
+	char *pchRequest = (char *)malloc(1024);
+	char *pchReply = (char *)malloc(1024);
+	DWORD cbBytesRead = 0, cbReplyBytes = 0, cbWritten = 0;
+	BOOL fSuccess = FALSE;
+	HANDLE hPipe = (HANDLE )lpvParam;
+
+	while(1)
+	{
+		fSuccess = ReadFile(hPipe,pchRequest,1024,&cbBytesRead,NULL);
+		if (!fSuccess || cbBytesRead == 0)
+		{
+			break;
+		}
+		
+		// process bytes here.
+		cbReplyBytes = 8;
+		strcpy(pchReply,"fuckyou\0");
+
+		fSuccess = WriteFile(hPipe,pchReply,cbReplyBytes,&cbWritten,NULL);
+		if (!fSuccess || cbReplyBytes != cbWritten)
+		{
+			break;
+		}
+	}
+
+	FlushFileBuffers(hPipe);
+	DisconnectNamedPipe(hPipe);
+	CloseHandle(hPipe);
+
+	free(pchRequest);
+	free(pchReply);
+	return 1;
 }

@@ -139,7 +139,9 @@ void parseArgs(int argc, char **argv)
 			globalCooldown = atoi(argv[i+1]);
 			i++;
 		}
-		else if(strcmp(argv[i],"-fastinject") == 0 && i + 1 < argc && opMode == OPMODE_DEFAULT)
+		else if((strcmp(argv[i],"-fastinject") == 0 || strcmp(argv[i],"--fastinject") == 0)\
+				&& i + 1 < argc\
+				&& opMode == OPMODE_DEFAULT)
 		{
 			opMode = OPMODE_INJECT;
 			globalInject = listProcesses_matchFirst(argv[i+1]);
@@ -273,6 +275,25 @@ void listProcesses(char *strToMatch)
 	return;
 }
 
+BOOL IsDll64Bit(char *dllName)
+{
+	IMAGE_DOS_HEADER *imgDosHdr = (IMAGE_DOS_HEADER *)malloc(sizeof(IMAGE_DOS_HEADER ));
+	IMAGE_NT_HEADERS *imgNtHdrs = (IMAGE_NT_HEADERS *)malloc(sizeof(IMAGE_NT_HEADERS ));
+
+	FILE *f = fopen(dllName,"rb");
+
+	fread(imgDosHdr,sizeof(IMAGE_DOS_HEADER),1,f);
+	fseek(f,sizeof(IMAGE_DOS_HEADER) + imgDosHdr->e_lfanew,SEEK_SET);
+	fread(imgNtHdrs,sizeof(IMAGE_NT_HEADERS),1,f);
+	fclose(f);
+
+	printf("MMMAAGGIC : %x\n",imgNtHdrs->OptionalHeader.Magic);
+
+	free(imgDosHdr);
+	free(imgNtHdrs);
+	return TRUE;
+}
+
 void injectIntoProcess(int processId, char *dllInput)
 {
 	printf(" [WARN] inject mode, this is inherently risky\n");
@@ -283,6 +304,8 @@ void injectIntoProcess(int processId, char *dllInput)
 		printf(" [FAIL] could not open process %04x\n",processId);
 		return;
 	}
+
+	printf(" [INFO] injected into process %d\n",processId);
 
 	SIZE_T bW = 0, bR = 0;
 	printf(" [INFO] attempting to create data cave\n");
@@ -429,6 +452,19 @@ int main(int argc,char **argv)
 
 	HANDLE hProcess = pi.hProcess;
 	HANDLE hThread = pi.hThread;
+
+	printf(" * [INFO] new process id is %d\n",pi.dwProcessId);
+
+	#if ARCHI == 64
+		BOOL wow64 = FALSE;
+		IsWow64Process(hProcess,&wow64);
+
+		if (wow64 == TRUE)
+		{
+			IsDll64Bit(globalDll);
+			printf(" [WARN] injecting into wow64 ");
+		}
+	#endif
 
 	printf(" [INFO] process handle is %08x\n",(unsigned long )hProcess);
 

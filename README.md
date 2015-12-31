@@ -1,13 +1,26 @@
 elegurawolfe
 ============
 
-elegurawolfe is a generic api hooking framework, designed to work with
-a minimum of effort on the programmer's part.
+elegurawolfe is a generic api hooking framework, designed to make interacting
+with game processes easier. it contains two primary components:
 
-this is a port of old code, there's probably a lot of bugs here. use
-at your own risk
+- a dll loader, which allows us to inject any dll into another process' memory
+space
+- "shackle.dll", which acts like a mini-debugger which you can use almost like
+windbg inside memory. this opens up an ipc server at \\.\pipe\shackle-%d, where
+%d is the host process id.
+- "peek", which acts as an ipc client over telnet (to communicate with shackle.dll)
 
-## usage
+## example: pwn adventure 3
+
+pwn adventure 3 (http://pwnadventure.com/) is a part of ghost in the shellcode
+2015, and consists of an mmorpg style game. for our adventure, we will be looking
+at the windows version of the game:
+
+PWNADVENTURES\PwnAdventure3_Data\PwnAdventure3\PwnAdventure3\Binaries\Win32\PwnAdventure3-Win32-Shipping.exe
+(md5sum 51b53981e188d4e54f6e69079f924a08)
+
+## dragons below etc
 
 ### building
 
@@ -16,8 +29,7 @@ build shackle32
 build shackle64
 build ldr32
 build ldr64
-build bea32
-build bea64
+build peek
 ````
 
 ### injecting into stuff
@@ -35,26 +47,11 @@ this is super WIP, doesn't yet validate architecture - shit will break if you in
 
 glhf lol
 
-### the "short cave" hack
 
-i've tried to make patching clean with a disassembler engine:
+## credits
 
-```
-address_from = user32!MessageBoxA
-address_to = shackle64!newMessageBoxA
+this code borrows heavily from other sources. these are listed below:
 
-code_cave = malloc(some bytes)
-copy(code_cave,address_from[0:14]) // prologue
-write(address_from[0:14],"JMP [RIP+0]; DQ ADDRESS_TO") // patch
-write(code_cave[14:],"JMP [RIP+0]; DQ ADDRESS_FROM + TOTALSIZE")
-```
-
-but we encounter a problem when we run into instructions which accept a dword-length relative offset that exists within the prologue; for example:
-
-`cmp [32-bits],r11d`
-
-i don't think we can patch this: the 32-bits parameter relies on the code executing in the right place, and it's too far from our new location to adjust the offset. HOWEVER, this is unlikely to happen within the first 5 bytes of an instruction (typically, this will still be the stack prologue)
-
-to counter this, we do two things:
-
-- try to patch to a short cave within the dll, that's after a "ret" instruction.
+- https://github.com/DarthTon/Blackbone
+- http://www.lua.org/pil/24.html
+- https://gist.github.com/randrews/939029
