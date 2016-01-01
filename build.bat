@@ -10,16 +10,18 @@ IF [%1]==[ldr32] cl /O2 /Zi /c /Foldr32.obj /Tp ldr.c
 IF [%1]==[ldr32] link /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:ldr32.exe ldr32.obj
 
 IF [%1]==[shackle64] cd lua53
-IF [%1]==[shackle64] cl /D LUA_COMPAT_5_2 /D LUA_BUILD_AS_DLL /O2 /c *.c
+IF [%1]==[shackle64] cl /D LUA_COMPAT_5_2 /D LUA_BUILD_AS_DLL /O2 /c /EHsc /TP *.c
 IF [%1]==[shackle64] cd ..
 IF [%1]==[shackle64] del lua53\lua.obj
+IF [%1]==[shackle64] del lua53\luac.obj
 IF [%1]==[shackle64] cl /D ARCHI_64 /O2 /Zi /c /I lua53 /I beainclude /Foshackle64.obj /Tp shackle.c
 IF [%1]==[shackle64] link /DLL /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:shackle64.dll shackle64.obj beasrc/BeaEngine64.obj lua53/*.obj
 
 IF [%1]==[shackle32] cd lua53
-IF [%1]==[shackle32] cl /D LUA_COMPAT_5_2 /D LUA_BUILD_AS_DLL /O2 /c *.c
+IF [%1]==[shackle32] cl /D LUA_COMPAT_5_2 /D LUA_BUILD_AS_DLL /O2 /c /EHsc /TP *.c
 IF [%1]==[shackle32] cd ..
 IF [%1]==[shackle32] del lua53\lua.obj
+IF [%1]==[shackle32] del lua53\luac.obj
 IF [%1]==[shackle32] cl /O2 /Zi /c /I lua53 /I beainclude /Foshackle32.obj /Tp shackle.c
 IF [%1]==[shackle32] link /DLL /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:shackle32.dll shackle32.obj beasrc/BeaEngine32.obj lua53/*.obj
 

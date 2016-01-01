@@ -232,14 +232,17 @@
 #if defined(LUA_BUILD_AS_DLL)	/* { */
 
 #if defined(LUA_CORE) || defined(LUA_LIB)	/* { */
-#define LUA_API __declspec(dllexport)
+// #define LUA_API __declspec(dllexport)
+#define LUA_API
 #else						/* }{ */
-#define LUA_API __declspec(dllimport)
+// #define LUA_API __declspec(dllimport)
+#define LUA_API
 #endif						/* } */
 
 #else				/* }{ */
 
-#define LUA_API		extern
+// #define LUA_API		extern
+#define LUA_API
 
 #endif				/* } */
 
@@ -247,7 +250,6 @@
 /* more often than not the libs go together with the core */
 #define LUALIB_API	LUA_API
 #define LUAMOD_API	LUALIB_API
-
 
 /*
 @@ LUAI_FUNC is a mark for all extern functions that are not to be

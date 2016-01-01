@@ -1,10 +1,10 @@
 #include <stdio.h>
 #include <windows.h>
 #include "beaengine\beaengine.h"
+#include <stdlib.h>
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
-#include <stdlib.h>
 
 // switched to beaengine for 64-bit support
 
@@ -85,7 +85,7 @@ untouched user32!MessageBoxA:
 
 #define CL_ON_64BIT_IS_A_PIECE_OF_SHIT 1
 
-lua_State *lua = NULL;
+lua_State *luaState = NULL;
 
 unsigned long WINAPI newMessageBox(unsigned long hwnd,char *msg,char *title,unsigned long flags)
 {
@@ -409,6 +409,8 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 
 	OutputDebugString(" - IPC Server Instance created\n");
 
+	luaState = luaL_newstate();
+
 	while(1)
 	{
 		fSuccess = ReadFile(hPipe,pchRequest,1024,&cbBytesRead,NULL);
@@ -442,9 +444,6 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	return 1;
 }
 
-/*
-	just pass things to the lua engine :D
-*/
 void processCommand(char *pchRequest, char *pchReply)
 {
 	
