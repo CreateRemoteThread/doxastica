@@ -80,19 +80,32 @@ int main(int argc, char **argv)
 			return -1;
 		}
 
-		do{
-			memset(chBuf,0,1024);
-			fSuccess = ReadFile(hPipe,chBuf,1024,&cbRead,NULL);
-			if ( ! fSuccess && GetLastError() != ERROR_MORE_DATA )
-				break; 
-			printf("%s\n",chBuf);
-
-		}while(!fSuccess);
-
-		if(!fSuccess)
+		BOOL keepWaiting = TRUE;
+		while(keepWaiting == TRUE)
 		{
-			printf(" [ERR] read failed, gle=%d\n",GetLastError());
-			return -1;
+			do{
+				memset(chBuf,0,1024);
+				fSuccess = ReadFile(hPipe,chBuf,1024,&cbRead,NULL);
+				if ( ! fSuccess && GetLastError() != ERROR_MORE_DATA )
+					break;
+				if ( !(strncmp(chBuf,"NEXTCMDREADY",12) == 0 && chBuf[12] == '\0') )
+				{
+					printf("%s\n",chBuf);
+				}
+			}while(!fSuccess);
+
+			if(!fSuccess)
+			{
+				printf(" [ERR] read failed, gle=%d\n",GetLastError());
+				keepWaiting = FALSE;
+				return -1;
+			}
+			
+			if(strncmp(chBuf,"NEXTCMDREADY",12) == 0 && chBuf[12] == '\0')
+			{
+				// =)
+				keepWaiting = FALSE;
+			}
 		}
 		printf(" > ");
 	}

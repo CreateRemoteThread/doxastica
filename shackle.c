@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <windows.h>
 #include "beaengine\beaengine.h"
+#include "memfunc.h"
 #include <stdlib.h>
 #include <lua.h>
 #include <lauxlib.h>
@@ -546,18 +547,70 @@ static int loadline (lua_State *L, HANDLE hPipe, int *exitToLoop) {
   return status;
 }
 
+static int cs_print(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+	DWORD cbWritten = 0;
+
+
+	int n = lua_gettop(L);  /* number of arguments */
+	int i;
+	lua_getglobal(L, "tostring");
+	for (i=1; i<=n; i++)
+	{
+		const char *s;
+		size_t l;
+		lua_pushvalue(L, -1);  /* function to be called */
+		lua_pushvalue(L, i);   /* value to print */
+		lua_call(L, 1, 1);
+		s = lua_tolstring(L, -1, &l);  /* get result */
+		if (s == NULL)
+			return luaL_error(L, "'tostring' must return a string to 'print'");
+		if (i>1)
+			WriteFile(hPipe,"\t",1,&cbWritten,NULL);
+		WriteFile(hPipe,s,l,&cbWritten,NULL);
+		lua_pop(L, 1);  /* pop result */
+    }
+	lua_writeline();
+	return 0;
+}
+
+static int cs_ALERT(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+	DWORD cbWritten = 0;
+
+	size_t l;
+	const char* str = lua_tolstring( L, -1 , &l);
+    lua_pop(L, 1);
+
+    WriteFile(hPipe,str,l,&cbWritten,NULL);
+    return 0;
+}
+
 static int test_lua(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
 	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
 	lua_pop(L,1);
 
-	char *pchReply = "SEX\0";
+	char *pchReply = "TEST_LUA\0";
 	DWORD cbReplyBytes = 4;
 	DWORD cbWritten = 0;
 	char mbuf[1024];
 
 	BOOL fSuccess = WriteFile(hPipe,pchReply,cbReplyBytes,&cbWritten,NULL);
+	if (!fSuccess || cbReplyBytes != cbWritten)
+	{
+		sprintf(mbuf," [ERR] write failed, gle=%d\n",GetLastError());
+		OutputDebugString(mbuf);
+	}
+
+	fSuccess = WriteFile(hPipe,pchReply,cbReplyBytes,&cbWritten,NULL);
 	if (!fSuccess || cbReplyBytes != cbWritten)
 	{
 		sprintf(mbuf," [ERR] write failed, gle=%d\n",GetLastError());
@@ -588,8 +641,12 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	luaState = luaL_newstate();
 	luaL_openlibs(luaState);
 	lua_register(luaState,"test_lua",test_lua);
-	luaL_dostring(luaState,"test_lua(123);");
+	lua_register(luaState,"print",cs_print);
+	lua_register(luaState,"_ALERT",cs_ALERT);
 	int exitToLoop = 0;
+
+	strcpy(pchReply,"NEXTCMDREADY\0");
+	cbReplyBytes = strlen(pchReply) + 1;
 
 	lua_pushnumber(luaState,(UINT_PTR )hPipe);
 	lua_setglobal(luaState,"__hpipe");
@@ -603,16 +660,8 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 			OutputDebugString(mbuf);
 			break;
 		}
-		
+
 		int status = luaL_dostring(luaState,pchRequest);
-		memset(pchReply,0,1024);
-		if(status == 0)
-		{
-			
-		}
-		else
-		{
-		}
 
 		fSuccess = WriteFile(hPipe,pchReply,cbReplyBytes,&cbWritten,NULL);
 		if (!fSuccess || cbReplyBytes != cbWritten)
