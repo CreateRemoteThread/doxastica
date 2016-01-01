@@ -23,7 +23,7 @@ IF [%1]==[shackle32] cd ..
 IF [%1]==[shackle32] del lua53\lua.obj
 IF [%1]==[shackle32] del lua53\luac.obj
 IF [%1]==[shackle32] cl /O2 /Zi /c /I lua53 /I beainclude /Foshackle32.obj /Tp shackle.c
-IF [%1]==[shackle32] link /DLL /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:shackle32.dll shackle32.obj beasrc/BeaEngine32.obj lua53/*.obj
+IF [%1]==[shackle32] link /DLL /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:shackle32.dll shackle32.obj beasrc/BeaEngine32.obj lua53/*.obj user32.lib
 
 IF [%1]==[bea32] cd beasrc
 IF [%1]==[bea32] cl /O2 /Zi /c /I ../beainclude /FoBeaEngine32.obj /Tp BeaEngine.c

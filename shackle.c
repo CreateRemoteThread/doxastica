@@ -5,6 +5,10 @@
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
+#include <signal.h>
+
+#define EOFMARK		"<eof>"
+#define marklen		(sizeof(EOFMARK)/sizeof(char) - 1)
 
 // switched to beaengine for 64-bit support
 
@@ -37,6 +41,7 @@ UINT_PTR searchForShortCave(UINT_PTR addressFrom,int minLength);
 DWORD WINAPI IPCServerThread( LPVOID lpParam );
 DWORD WINAPI IPCServerInstance(LPVOID lpvParam);
 void processCommand(char *pchRequest, char *pchReply);
+static int test_lua(lua_State *L);
 
 _MessageBoxA oldMessageBox = NULL;
 _send oldSend = NULL;
@@ -85,7 +90,15 @@ untouched user32!MessageBoxA:
 
 #define CL_ON_64BIT_IS_A_PIECE_OF_SHIT 1
 
-lua_State *luaState = NULL;
+
+static int loadline (lua_State *L, HANDLE hPipe, int *exitToLoop);
+static int pushline (lua_State *L, int firstline, HANDLE hPipe, int *exitToLoop);
+static int multiline (lua_State *L, HANDLE hPipe, int *exitToLoop);
+int lua_readline(lua_State *L, char *buf, char *prompt, HANDLE hPipe, int *exitIoLoop);
+static int docall (lua_State *L, int narg, int nres);
+static int msghandler (lua_State *L) ;
+
+#define LUA_MAXINPUT		512
 
 unsigned long WINAPI newMessageBox(unsigned long hwnd,char *msg,char *title,unsigned long flags)
 {
@@ -398,6 +411,166 @@ DWORD WINAPI IPCServerThread( LPVOID lpParam )
 	return 0;
 }
 
+#define lua_saveline(L,line)	{ (void)L; (void)line; }
+#define lua_freeline(L,b)	{ (void)L; (void)b; }
+
+static int incomplete (lua_State *L, int status) {
+  if (status == LUA_ERRSYNTAX) {
+    size_t lmsg;
+    const char *msg = lua_tolstring(L, -1, &lmsg);
+    if (lmsg >= marklen && strcmp(msg + lmsg - marklen, EOFMARK) == 0) {
+      lua_pop(L, 1);
+      return 1;
+    }
+  }
+  return 0;  /* else... */
+}
+
+static int addreturn (lua_State *L) {
+  const char *line = lua_tostring(L, -1);  /* original line */
+  const char *retline = lua_pushfstring(L, "return %s;", line);
+  int status = luaL_loadbuffer(L, retline, strlen(retline), "=stdin");
+  if (status == LUA_OK) {
+    lua_remove(L, -2);  /* remove modified line */
+    if (line[0] != '\0')  /* non empty? */
+      lua_saveline(L, line);  /* keep history */
+  }
+  else
+    lua_pop(L, 2);  /* pop result from 'luaL_loadbuffer' and modified line */
+  return status;
+}
+
+static int pushline (lua_State *L, int firstline, HANDLE hPipe, int *exitToLoop) {
+  // what kind of crackhead programming is this shit
+  char buffer[LUA_MAXINPUT];
+  char *b = buffer;
+  size_t l;
+  char *prmt = "IGNORED-PUSHLINE";
+  int readstatus = lua_readline(L, b, prmt, hPipe, exitToLoop);
+  if (readstatus == 0)
+    return 0;  /* no input (prompt will be popped by caller) */
+  lua_pop(L, 1);  /* remove prompt */
+  l = strlen(b);
+  if (l > 0 && b[l-1] == '\n')  /* line ends with newline? */
+    b[--l] = '\0';  /* remove it */
+  if (firstline && b[0] == '=')  /* for compatibility with 5.2, ... */
+    lua_pushfstring(L, "return %s", b + 1);  /* change '=' to 'return' */
+  else
+    lua_pushlstring(L, b, l);
+  lua_freeline(L, b);
+  return 1;
+}
+
+static int multiline (lua_State *L, HANDLE hPipe, int *exitToLoop) {
+  for (;;) {  /* repeat until _s a complete statement */
+    size_t len;
+    const char *line = lua_tolstring(L, 1, &len);  /* get what it has */
+    int status = luaL_loadbuffer(L, line, len, "=stdin");  /* try it */
+    if (!incomplete(L, status) || !pushline(L, 0, hPipe, exitToLoop) || *exitToLoop == 1) {
+	  OutputDebugString("+fucked+\n");
+      lua_saveline(L, line);  /* keep history */
+      return status;  /* cannot or should not try to add continuation line */
+    }
+    lua_pushliteral(L, "\n");  /* add newline... */
+    lua_insert(L, -2);  /* ...between the two lines */
+    lua_concat(L, 3);  /* join them */
+  }
+}
+
+int lua_readline(lua_State *L, char *buf, char *prompt, HANDLE hPipe, int *exitIoLoop)
+{
+	char mbuf[1024];
+	BOOL fSuccess = FALSE;
+	DWORD cbBytesRead = 0;
+	fSuccess = ReadFile(hPipe,buf,LUA_MAXINPUT,&cbBytesRead,NULL);
+	if (!fSuccess || cbBytesRead == 0)
+	{
+		memset(mbuf,0,1024);
+		sprintf(mbuf," [ERR] read failed, gle=%d\n",GetLastError());
+		OutputDebugString(mbuf);
+		*exitIoLoop = 1;
+		return 0;
+	}
+	return 1;
+}
+
+static int msghandler (lua_State *L) {
+  const char *msg = lua_tostring(L, 1);
+  if (msg == NULL) {  /* is error object not a string? */
+    if (luaL_callmeta(L, 1, "__tostring") &&  /* does it have a metamethod */
+        lua_type(L, -1) == LUA_TSTRING)  /* that produces a string? */
+      return 1;  /* that is the message */
+    else
+      msg = lua_pushfstring(L, "(error object is a %s value)",
+                               luaL_typename(L, 1));
+  }
+  luaL_traceback(L, L, msg, 1);  /* append a standard traceback */
+  return 1;  /* return the traceback */
+}
+
+static void lstop (lua_State *L, lua_Debug *ar) {
+  (void)ar;  /* unused arg. */
+  lua_sethook(L, NULL, 0, 0);  /* reset hook */
+  luaL_error(L, "interrupted!");
+}
+
+lua_State *globalL = NULL;
+
+static void laction (int i) {
+  signal(i, SIG_DFL); /* if another SIGINT happens, terminate process */
+  lua_sethook(globalL, lstop, LUA_MASKCALL | LUA_MASKRET | LUA_MASKCOUNT, 1);
+}
+
+static int docall (lua_State *L, int narg, int nres) {
+  int status;
+  int base = lua_gettop(L) - narg;  /* function index */
+  lua_pushcfunction(L, msghandler);  /* push message handler */
+  lua_insert(L, base);  /* put it under function and args */
+  globalL = L;  /* we need to mutex this shit */
+  signal(SIGINT, laction);  /* set C-signal handler */
+  status = lua_pcall(L, narg, nres, base);
+  signal(SIGINT, SIG_DFL); /* reset C-signal handler */
+  lua_remove(L, base);  /* remove message handler from the stack */
+  return status;
+}
+
+static int loadline (lua_State *L, HANDLE hPipe, int *exitToLoop) {
+  int status;
+  lua_settop(L, 0);
+  if (!pushline(L, 1, hPipe, exitToLoop))
+    return -1;  /* no input */
+  if ((status = addreturn(L)) != LUA_OK)  /* 'return ...' did not work? */
+    status = multiline(L,hPipe,exitToLoop);  /* try as command, maybe with continuation lines */
+  lua_remove(L, 1);  /* remove line from the stack */
+  lua_assert(lua_gettop(L) == 1);
+  return status;
+}
+
+static int test_lua(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+
+	char *pchReply = "SEX\0";
+	DWORD cbReplyBytes = 4;
+	DWORD cbWritten = 0;
+	char mbuf[1024];
+
+	BOOL fSuccess = WriteFile(hPipe,pchReply,cbReplyBytes,&cbWritten,NULL);
+	if (!fSuccess || cbReplyBytes != cbWritten)
+	{
+		sprintf(mbuf," [ERR] write failed, gle=%d\n",GetLastError());
+		OutputDebugString(mbuf);
+	}
+
+	OutputDebugString(" + lua engine successfully recognizes test_lua(), good to go\n");
+	// lua_pushnumber(L,123);
+	return 0;
+}
+
+typedef int (*lua_CFunction) (lua_State *L);
+
 DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 {
 	char *pchRequest = (char *)malloc(1024);
@@ -409,7 +582,17 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 
 	OutputDebugString(" - IPC Server Instance created\n");
 
+	// moved here for thread-safety.
+	lua_State *luaState = NULL;
+
 	luaState = luaL_newstate();
+	luaL_openlibs(luaState);
+	lua_register(luaState,"test_lua",test_lua);
+	luaL_dostring(luaState,"test_lua(123);");
+	int exitToLoop = 0;
+
+	lua_pushnumber(luaState,(UINT_PTR )hPipe);
+	lua_setglobal(luaState,"__hpipe");
 
 	while(1)
 	{
@@ -421,9 +604,15 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 			break;
 		}
 		
+		int status = luaL_dostring(luaState,pchRequest);
 		memset(pchReply,0,1024);
-		processCommand(pchRequest,pchReply);
-		cbReplyBytes = strlen(pchReply) + 1;
+		if(status == 0)
+		{
+			
+		}
+		else
+		{
+		}
 
 		fSuccess = WriteFile(hPipe,pchReply,cbReplyBytes,&cbWritten,NULL);
 		if (!fSuccess || cbReplyBytes != cbWritten)
@@ -434,6 +623,40 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 		}
 	}
 
+	/*
+	while ((status = loadline(luaState, hPipe, &exitToLoop)) != -1 && exitToLoop == 0) 
+	{
+		if (status == LUA_OK)
+		{
+			OutputDebugString("doing call\n");
+			status = docall(luaState, 0, LUA_MULTRET);
+		}
+		if (status == LUA_OK)
+		{
+			memset(pchReply,0,1024);
+			strcpy(pchReply,"123123");
+			cbReplyBytes = strlen(pchReply) + 1;	
+		}
+		else
+		{
+			memset(pchReply,0,1024);
+			strcpy(pchReply,"fqn wat 123123");
+			cbReplyBytes = strlen(pchReply) + 1;
+		}
+		fSuccess = WriteFile(hPipe,pchReply,cbReplyBytes,&cbWritten,NULL);
+		if (!fSuccess || cbReplyBytes != cbWritten)
+		{
+			sprintf(mbuf," [ERR] write failed, gle=%d\n",GetLastError());
+			OutputDebugString(mbuf);
+			break;
+		}
+	}
+	*/
+
+	lua_settop(luaState, 0);  /* clear stack */
+	lua_writeline();
+	lua_close(luaState);
+
 	FlushFileBuffers(hPipe);
 	DisconnectNamedPipe(hPipe);
 	CloseHandle(hPipe);
@@ -442,10 +665,4 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	free(pchRequest);
 	free(pchReply);
 	return 1;
-}
-
-void processCommand(char *pchRequest, char *pchReply)
-{
-	
-	return;
 }
