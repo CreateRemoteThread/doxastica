@@ -51,12 +51,29 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
+	printf(" > ");
+
+	// err...
 	while(1)
 	{
+		memset(chBuf,0,1024);
 		fgets(chBuf,1024,stdin);
 		chomp(chBuf);
 
-		fSuccess = WriteFile(hPipe,chBuf,strlen(chBuf),&cbWritten,NULL);
+		if(strlen(chBuf) == 0)
+		{
+			continue;
+		}
+		if(chBuf[0] == '.')
+		{
+			// local command
+			if(strcmp(chBuf,".q") == 0 || strcmp(chBuf,".quit") == 0 || strcmp(chBuf,".quit()") == 0)
+			{
+				break;
+			}
+		}
+
+		fSuccess = WriteFile(hPipe,chBuf,strlen(chBuf) + 1,&cbWritten,NULL);
 		if(!fSuccess)
 		{
 			printf(" [ERR] write failed, gle=%d\n",GetLastError());
@@ -64,6 +81,7 @@ int main(int argc, char **argv)
 		}
 
 		do{
+			memset(chBuf,0,1024);
 			fSuccess = ReadFile(hPipe,chBuf,1024,&cbRead,NULL);
 			if ( ! fSuccess && GetLastError() != ERROR_MORE_DATA )
 				break; 
@@ -76,10 +94,10 @@ int main(int argc, char **argv)
 			printf(" [ERR] read failed, gle=%d\n",GetLastError());
 			return -1;
 		}
+		printf(" > ");
 	}
 
-	printf(" [INFO] done\n");
-	getchar();
+	printf(" [INFO] done, cleaning up\n");
 
 	free(chBuf);
 	CloseHandle(hPipe);

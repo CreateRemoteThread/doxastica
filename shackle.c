@@ -1,6 +1,10 @@
 #include <stdio.h>
 #include <windows.h>
 #include "beaengine\beaengine.h"
+#include <lua.h>
+#include <lauxlib.h>
+#include <lualib.h>
+#include <stdlib.h>
 
 // switched to beaengine for 64-bit support
 
@@ -32,6 +36,7 @@ void hook(UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress);
 UINT_PTR searchForShortCave(UINT_PTR addressFrom,int minLength);
 DWORD WINAPI IPCServerThread( LPVOID lpParam );
 DWORD WINAPI IPCServerInstance(LPVOID lpvParam);
+void processCommand(char *pchRequest, char *pchReply);
 
 _MessageBoxA oldMessageBox = NULL;
 _send oldSend = NULL;
@@ -79,6 +84,8 @@ untouched user32!MessageBoxA:
 
 
 #define CL_ON_64BIT_IS_A_PIECE_OF_SHIT 1
+
+lua_State *lua = NULL;
 
 unsigned long WINAPI newMessageBox(unsigned long hwnd,char *msg,char *title,unsigned long flags)
 {
@@ -375,12 +382,16 @@ DWORD WINAPI IPCServerThread( LPVOID lpParam )
 				OutputDebugString(mbuf);
 				break;
 			}
+			else
+			{
+				// don't need to track this.
+				CloseHandle(hThread);
+			}
 		}
 		else
 		{
 			CloseHandle(hPipe);
 		}
-		CloseHandle(hPipe);
 	}
 	free(pipeName);
 	free(mbuf);
@@ -391,25 +402,32 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 {
 	char *pchRequest = (char *)malloc(1024);
 	char *pchReply = (char *)malloc(1024);
+	char *mbuf = (char *)malloc(1024);
 	DWORD cbBytesRead = 0, cbReplyBytes = 0, cbWritten = 0;
 	BOOL fSuccess = FALSE;
 	HANDLE hPipe = (HANDLE )lpvParam;
+
+	OutputDebugString(" - IPC Server Instance created\n");
 
 	while(1)
 	{
 		fSuccess = ReadFile(hPipe,pchRequest,1024,&cbBytesRead,NULL);
 		if (!fSuccess || cbBytesRead == 0)
 		{
+			sprintf(mbuf," [ERR] read failed, gle=%d\n",GetLastError());
+			OutputDebugString(mbuf);
 			break;
 		}
 		
-		// process bytes here.
-		cbReplyBytes = 8;
-		strcpy(pchReply,"fuckyou\0");
+		memset(pchReply,0,1024);
+		processCommand(pchRequest,pchReply);
+		cbReplyBytes = strlen(pchReply) + 1;
 
 		fSuccess = WriteFile(hPipe,pchReply,cbReplyBytes,&cbWritten,NULL);
 		if (!fSuccess || cbReplyBytes != cbWritten)
 		{
+			sprintf(mbuf," [ERR] write failed, gle=%d\n",GetLastError());
+			OutputDebugString(mbuf);
 			break;
 		}
 	}
@@ -418,7 +436,17 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	DisconnectNamedPipe(hPipe);
 	CloseHandle(hPipe);
 
+	free(mbuf);
 	free(pchRequest);
 	free(pchReply);
 	return 1;
+}
+
+/*
+	just pass things to the lua engine :D
+*/
+void processCommand(char *pchRequest, char *pchReply)
+{
+	
+	return;
 }

@@ -55,3 +55,4 @@ this code borrows heavily from other sources. these are listed below:
 - https://github.com/DarthTon/Blackbone
 - http://www.lua.org/pil/24.html
 - https://gist.github.com/randrews/939029
+- http://pastebin.com/HbWNAV99
