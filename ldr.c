@@ -34,6 +34,8 @@ typedef DWORD (WINAPI * _NtQueryInformationProcess) (HANDLE, int , PVOID, ULONG,
 
 _NtQueryInformationProcess NtQueryInformationProcess;
 
+DWORD globalPid = 0;
+
 #define OPMODE_DEFAULT 0
 #define OPMODE_LIST 1
 #define OPMODE_INJECT 2
@@ -305,6 +307,7 @@ void injectIntoProcess(int processId, char *dllInput)
 		return;
 	}
 
+	globalPid = processId;
 	printf(" [INFO] injected into process %d\n",processId);
 
 	SIZE_T bW = 0, bR = 0;
@@ -345,6 +348,12 @@ void injectIntoProcess(int processId, char *dllInput)
 	 }
 
 	printf(" [INFO] success!\n");
+
+	if (globalPid != 0)
+	{
+		printf("\n\n - to connect to this process, use peek %d - \n\n", globalPid);
+	}
+
 	return;
 }
 
@@ -453,6 +462,7 @@ int main(int argc,char **argv)
 	HANDLE hProcess = pi.hProcess;
 	HANDLE hThread = pi.hThread;
 
+	globalPid = pi.dwProcessId;
 	printf(" * [INFO] new process id is %d\n",pi.dwProcessId);
 
 	#if ARCHI == 64

@@ -47,4 +47,5 @@ IF [%1] EQU [] ECHO ++ shackle32
 IF [%1] EQU [] ECHO ++ shackle64
 IF [%1] EQU [] ECHO ++ ldr32
 IF [%1] EQU [] ECHO ++ ldr64
+IF [%1] EQU [] ECHO ++ peek
 IF [%1] EQU [] ECHO if you get something about x86 vs x64, ensure you've recompiled bea for your target architecture.
