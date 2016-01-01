@@ -30,3 +30,8 @@
 *.i*86
 *.x86_64
 *.hex
+*.exp
+*.dll
+*.pdb
+*.obj
+*.manifest
