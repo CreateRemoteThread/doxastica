@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <windows.h>
 #include "beaengine\beaengine.h"
-#include "memfunc.h"
 #include <stdlib.h>
 #include <lua.h>
 #include <lauxlib.h>

@@ -1,7 +1,7 @@
-elegurawolfe
-============
+doxastica
+=========
 
-elegurawolfe is a generic api hooking framework, designed to make interacting
+doxastica is a generic api hooking framework, designed to make interacting
 with game processes easier. it contains two primary components:
 
 - a dll loader, which allows us to inject any dll into another process' memory
