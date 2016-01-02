@@ -6,6 +6,7 @@
 #include <lauxlib.h>
 #include <lualib.h>
 #include <signal.h>
+#include <ctype.h>
 
 #define EOFMARK		"<eof>"
 #define marklen		(sizeof(EOFMARK)/sizeof(char) - 1)
@@ -725,6 +726,7 @@ lua API (invoke via peek)
 - void hexdump(addr offset, int size)
 - void disassemble(addr offset, int instructionLength)
 - str cs_assemble(str input)
+- void memcpy(addr offset, string data, int size)
 - void memset(addr offset, char data, int size)
 - void mprotect(addr offset, int protectionconstant)
 - addr resolve(str resolvestring)
@@ -740,23 +742,82 @@ utility (for internal use)
 
 void outString(HANDLE hPipe, char *thisMsg);
 
+/*
+static int cs_patch(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+
+	if (lua_gettop(L) == 3)
+	{
+		addr = (char *)(UINT_PTR )lua_tonumber(L,1);
+		if(lua_isstring(lua_Object object))
+		{
+
+		}
+
+		n = lua_tonumber(L,2);
+	}
+	else if(lua_gettop(L) == 1)
+	{
+		outString(hPipe," [NFO] no size supplied, defaulting to size 64\n");
+		addr = (char *)(UINT_PTR )lua_tonumber(L,1);
+		n = 64;
+	}
+	else
+	{
+		outString(hPipe," [ERR] hexdump(addr,size) requires 2 arguments\n");
+		return 0;
+	}
+
+
+	return 0;
+}
+*/
+
+int readfilter(unsigned int code, struct _EXCEPTION_POINTERS *ep) {
+   // puts("in filter.");
+   if (code == EXCEPTION_ACCESS_VIOLATION) {
+      // puts("caught AV as expected.");
+      return EXCEPTION_EXECUTE_HANDLER;
+   }
+   else {
+      puts("didn't catch AV, unexpected.");
+      return EXCEPTION_CONTINUE_SEARCH;
+   };
+}
+
 static int cs_hexdump(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
 	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
 	lua_pop(L,1);
 
-
-	DWORD cbReplyBytes = 4;
-	DWORD cbWritten = 0;
 	char mbuf[1024];
 
-	char *addr = (char *)(UINT_PTR )lua_tonumber(L,1);
-	int n = lua_tonumber(L,2);
+	UINT_PTR addr = NULL;
+	int n = 0;
+
+	if (lua_gettop(L) == 2)
+	{
+		addr = (UINT_PTR )lua_tonumber(L,1);
+		n = lua_tonumber(L,2);
+	}
+	else if(lua_gettop(L) == 1)
+	{
+		outString(hPipe," [NFO] no size supplied, defaulting to size 64\n");
+		addr = (UINT_PTR )lua_tonumber(L,1);
+		n = 64;
+	}
+	else
+	{
+		outString(hPipe," [ERR] hexdump(addr,size) requires 2 arguments\n");
+		return 0;
+	}
 
 	sprintf(mbuf," - starting cs_hexdump, address is %x, length is %d\n",addr,n);
 	outString(hPipe,mbuf);
-
 
 	char currentLine[17];
 	int isRead = 0;
@@ -769,26 +830,25 @@ static int cs_hexdump(lua_State *L)
 		if(i == 0 || i % 16 == 0)
 		{
 			#if ARCHI == 64
-				sprintf(mbuf,"%0x08x : \0",(UINT_PTR )(addr + i));
+				sprintf(mbuf,"0x%016x : \0",(UINT_PTR )(addr + i));
 			#else
-				sprintf(mbuf,"%0x16x : \0",(UINT_PTR )(addr + i));
+				sprintf(mbuf,"0x%08x : \0",(UINT_PTR )(addr + i));
 			#endif
 			outString(hPipe,mbuf);
 			memset(currentLine,'.',16);
 			currentLine[16] = '\0';
 		}
-
-		try
+		
+		__try
 		{
-			thisChar = (currentLine[i%16] = addr[i]); // will throw an exception first, don't need everything else.
+			thisChar = (currentLine[i%16] = (char )*(char *)(addr + i)); // will throw an exception first, don't need everything else.
 			sprintf(mbuf,"%02x \0",(unsigned char )(thisChar));
 			outString(hPipe,mbuf);
 			currentLine[i % 16] = thisChar;
 		}
-		catch (...)
+		__except( readfilter(GetExceptionCode(), GetExceptionInformation()) )
 		{
 			outString(hPipe,".. ");
-			// just don't throw an exception :)
 		}
 
 		if((i + 1) % 16 == 0)
