@@ -622,6 +622,7 @@ static int test_lua(lua_State *L)
 }
 
 typedef int (*lua_CFunction) (lua_State *L);
+static int cs_hexdump(lua_State *L);
 
 DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 {
@@ -639,9 +640,10 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 
 	luaState = luaL_newstate();
 	luaL_openlibs(luaState);
-	lua_register(luaState,"test_lua",test_lua);
+	// lua_register(luaState,"test_lua",test_lua);
 	lua_register(luaState,"print",cs_print);
 	lua_register(luaState,"_ALERT",cs_ALERT);
+	lua_register(luaState,"hexdump",cs_hexdump);
 	int exitToLoop = 0;
 
 	strcpy(pchReply,"NEXTCMDREADY\0");
@@ -713,4 +715,107 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	free(pchRequest);
 	free(pchReply);
 	return 1;
+}
+
+/*
+
+lua API (invoke via peek)
+=========================
+
+- void hexdump(addr offset, int size)
+- void disassemble(addr offset, int instructionLength)
+- str cs_assemble(str input)
+- void memset(addr offset, char data, int size)
+- void mprotect(addr offset, int protectionconstant)
+- addr resolve(str resolvestring)
+- addr malloc(size)
+- void free(addr)
+
+utility (for internal use)
+==========================
+
+- void outString(HANDLE hPipe,char *msg)
+
+*/
+
+void outString(HANDLE hPipe, char *thisMsg);
+
+static int cs_hexdump(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+
+
+	DWORD cbReplyBytes = 4;
+	DWORD cbWritten = 0;
+	char mbuf[1024];
+
+	char *addr = (char *)(UINT_PTR )lua_tonumber(L,1);
+	int n = lua_tonumber(L,2);
+
+	sprintf(mbuf," - starting cs_hexdump, address is %x, length is %d\n",addr,n);
+	outString(hPipe,mbuf);
+
+
+	char currentLine[17];
+	int isRead = 0;
+	char thisChar = '\0';
+
+	int i = 0;
+
+	for(i = 0;i < n;i++)
+	{
+		if(i == 0 || i % 16 == 0)
+		{
+			#if ARCHI == 64
+				sprintf(mbuf,"%0x08x : \0",(UINT_PTR )(addr + i));
+			#else
+				sprintf(mbuf,"%0x16x : \0",(UINT_PTR )(addr + i));
+			#endif
+			outString(hPipe,mbuf);
+			memset(currentLine,'.',16);
+			currentLine[16] = '\0';
+		}
+
+		try
+		{
+			thisChar = (currentLine[i%16] = addr[i]); // will throw an exception first, don't need everything else.
+			sprintf(mbuf,"%02x \0",(unsigned char )(thisChar));
+			outString(hPipe,mbuf);
+			currentLine[i % 16] = thisChar;
+		}
+		catch (...)
+		{
+			outString(hPipe,".. ");
+			// just don't throw an exception :)
+		}
+
+		if((i + 1) % 16 == 0)
+		{
+			outString(hPipe,currentLine);
+			outString(hPipe,"\n");
+		}
+	}
+
+	if( i % 16 != 0)
+	{
+		// finish up.
+		for(;i % 16 != 0;i++)
+		{
+			outString(hPipe,".. ");
+		}
+		outString(hPipe,currentLine);
+		outString(hPipe,"\n");
+	}
+	
+	return 0;
+}
+
+void outString(HANDLE hPipe, char *thisMsg)
+{
+	DWORD bytesWritten = 0;
+	WriteFile(hPipe,thisMsg,strlen(thisMsg) + 1,&bytesWritten,NULL);
+	OutputDebugString(thisMsg);
+	return;
 }

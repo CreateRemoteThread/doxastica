@@ -90,7 +90,8 @@ int main(int argc, char **argv)
 					break;
 				if ( !(strncmp(chBuf,"NEXTCMDREADY",12) == 0 && chBuf[12] == '\0') )
 				{
-					printf("%s\n",chBuf);
+					// don't print a newline
+					printf("%s",chBuf);
 				}
 			}while(!fSuccess);
 
