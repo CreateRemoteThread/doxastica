@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <windows.h>
+#include <psapi.h>
 #include "beaengine\beaengine.h"
 #include <stdlib.h>
 #include <lua.h>
@@ -7,6 +8,7 @@
 #include <lualib.h>
 #include <signal.h>
 #include <ctype.h>
+#include "shackle.h"
 
 #define EOFMARK		"<eof>"
 #define marklen		(sizeof(EOFMARK)/sizeof(char) - 1)
@@ -34,15 +36,6 @@
 #define MANUAL_FUNCTION_PRELUDE 1
 
 int init = 0;
-
-typedef DWORD (WINAPI * _MessageBoxA) (DWORD, LPCVOID, LPCVOID, DWORD);
-typedef DWORD (WINAPI * _send) (DWORD, char *, DWORD, DWORD);
-void hook(UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress);
-UINT_PTR searchForShortCave(UINT_PTR addressFrom,int minLength);
-DWORD WINAPI IPCServerThread( LPVOID lpParam );
-DWORD WINAPI IPCServerInstance(LPVOID lpvParam);
-void processCommand(char *pchRequest, char *pchReply);
-static int test_lua(lua_State *L);
 
 _MessageBoxA oldMessageBox = NULL;
 _send oldSend = NULL;
@@ -90,14 +83,6 @@ untouched user32!MessageBoxA:
 
 
 #define CL_ON_64BIT_IS_A_PIECE_OF_SHIT 1
-
-
-static int loadline (lua_State *L, HANDLE hPipe, int *exitToLoop);
-static int pushline (lua_State *L, int firstline, HANDLE hPipe, int *exitToLoop);
-static int multiline (lua_State *L, HANDLE hPipe, int *exitToLoop);
-int lua_readline(lua_State *L, char *buf, char *prompt, HANDLE hPipe, int *exitIoLoop);
-static int docall (lua_State *L, int narg, int nres);
-static int msghandler (lua_State *L) ;
 
 #define LUA_MAXINPUT		512
 
@@ -622,8 +607,29 @@ static int test_lua(lua_State *L)
 	return 0;
 }
 
-typedef int (*lua_CFunction) (lua_State *L);
-static int cs_hexdump(lua_State *L);
+UINT_PTR resolve(char *address)
+{
+	
+	return NULL;
+}
+
+static int cs_resolve(lua_State *L)
+{
+	size_t l;
+	char* addressToResolve = (char *)lua_tolstring( L, -1 , &l);
+    lua_pop(L, 1);
+
+	lua_pushnumber(L,resolve(addressToResolve));
+	return 1;
+}
+
+void cs_error(lua_State *L, HANDLE hPipe)
+{
+	char mbuf[1024];
+	sprintf(mbuf," %s\n",lua_tostring(L,-1));
+	outString(hPipe,mbuf);
+	return;
+}
 
 DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 {
@@ -645,13 +651,72 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	lua_register(luaState,"print",cs_print);
 	lua_register(luaState,"_ALERT",cs_ALERT);
 	lua_register(luaState,"hexdump",cs_hexdump);
+	lua_register(luaState,"memcpy",cs_memcpy);
+	lua_register(luaState,"memset",cs_memset);
+	lua_register(luaState,"malloc",cs_malloc);
+	lua_register(luaState,"mprotect",cs_mprotect);
+
+	// mprotect constants
+	luaL_dostring(luaState,"PAGE_EXECUTE = 0x10");
+	luaL_dostring(luaState,"PAGE_EXECUTE_READ = 0x20");
+	luaL_dostring(luaState,"PAGE_EXECUTE_READWRITE = 0x40");
+	luaL_dostring(luaState,"PAGE_EXECUTE_WRITECOPY = 0x80");
+	luaL_dostring(luaState,"PAGE_NOACCESS = 0x1");
+	luaL_dostring(luaState,"PAGE_READONLY = 0x2");
+	luaL_dostring(luaState,"PAGE_READWRITE = 0x4");
+	luaL_dostring(luaState,"PAGE_WRITECOPY = 0x8");
+	luaL_dostring(luaState,"PAGE_TARGETS_INVALID = 0x40000000");
+	luaL_dostring(luaState,"PAGE_TARGETS_NO_UPDATE = 0x40000000");
+	luaL_dostring(luaState,"PAGE_GUARD = 0x100");
+	luaL_dostring(luaState,"PAGE_NOCACHE = 0x200");
+	luaL_dostring(luaState,"PAGE_WRITECOMBINE = 0x400");
+
 	int exitToLoop = 0;
 
 	strcpy(pchReply,"NEXTCMDREADY\0");
 	cbReplyBytes = strlen(pchReply) + 1;
 
+	HANDLE hProcess = (HANDLE )GetCurrentProcess();
+	DWORD pid = (DWORD )GetCurrentProcessId();
+
 	lua_pushnumber(luaState,(UINT_PTR )hPipe);
 	lua_setglobal(luaState,"__hpipe");
+
+	lua_pushnumber(luaState,(UINT_PTR )hProcess);
+	lua_setglobal(luaState,"__hprocess");
+
+	lua_pushnumber(luaState,pid);
+	lua_setglobal(luaState,"__pid");
+
+	sprintf(mbuf," - __hpipe = 0x%x | __hProcess = 0x%x | __pid = %d -\n",hPipe,hProcess,pid);
+	outString(hPipe,mbuf);
+
+
+	// collect process modules for resolver
+	HMODULE hMods[1024];
+	DWORD cbNeeded = 0;
+	if( EnumProcessModules( hProcess, hMods, sizeof(hMods),&cbNeeded) )
+	{
+		int i = 0;
+		for (; i < (cbNeeded / sizeof(HMODULE)); i++)
+		{
+			char szModName[1024];
+			if(GetModuleFileNameEx( hProcess,hMods[i],szModName,sizeof(szModName) / sizeof(char)) )
+			{
+				sprintf(mbuf," + %s (0x%08x)\n",szModName,hMods[i]);
+				outString(hPipe,mbuf);
+			}
+		}
+	}
+	else
+	{
+		// maybe get 'peek' to do initialization.
+	}
+
+	outString(hPipe,"\n");
+
+	sprintf(mbuf,"INITFINISHED\0");
+	outString(hPipe,mbuf);
 
 	while(1)
 	{
@@ -663,7 +728,31 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 			break;
 		}
 
-		int status = luaL_dostring(luaState,pchRequest);
+		/*
+
+		// http://stackoverflow.com/questions/20454725/how-to-replace-lua-default-error-print
+
+		if (luaL_loadbuffer(L,script.c_str(),script.Length(),AnsiString(Name).c_str()) == 0) {
+		if (lua_pcall(L, 0, 0, 0))        // Run loaded Lua script
+			cs_error(L, "Runtime error: "); // Print runtime error
+		} else {
+			cs_error(L, "Compiler error: ");  // Print compiler error
+		}
+		*/
+
+		if( luaL_loadbuffer(luaState,pchRequest,strlen(pchRequest),"IPCInput") == 0 )
+		{
+			if( lua_pcall(luaState,0,0,0) )
+			{
+				cs_error(luaState,hPipe);
+			}
+		}
+		else
+		{
+			cs_error(luaState,hPipe);
+		}
+
+		// int status = luaL_dostring(luaState,pchRequest);
 
 		fSuccess = WriteFile(hPipe,pchReply,cbReplyBytes,&cbWritten,NULL);
 		if (!fSuccess || cbReplyBytes != cbWritten)
@@ -728,53 +817,173 @@ lua API (invoke via peek)
 - str cs_assemble(str input)
 - void memcpy(addr offset, string data, int size)
 - void memset(addr offset, char data, int size)
-- void mprotect(addr offset, int protectionconstant)
+- (status, oldprotect) = mprotect(addr offset, size, int protectionconstant) // really virtualprotect, but sure.
 - addr resolve(str resolvestring)
 - addr malloc(size)
 - void free(addr)
 
-utility (for internal use)
-==========================
-
-- void outString(HANDLE hPipe,char *msg)
-
 */
 
-void outString(HANDLE hPipe, char *thisMsg);
+static int cs_malloc(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+	char mbuf[1024];
 
-/*
-static int cs_patch(lua_State *L)
+	int size = 0;
+
+	if (lua_gettop(L) == 1)
+	{
+		size = lua_tonumber(L,1);
+	}
+	else
+	{
+		outString(hPipe," [ERR] malloc(size) requires 1 argument\n");
+		return 0;
+	}
+
+	UINT_PTR returnvalue = (UINT_PTR )malloc(size);
+	memset((void *)returnvalue,0,size);
+
+	sprintf(mbuf," [NFO] allocated %d bytes at 0x%x",size,returnvalue);
+	outString(hPipe,mbuf);
+
+	lua_pushnumber(L,returnvalue);
+	return 1;
+}
+
+static int cs_mprotect(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
 	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
 	lua_pop(L,1);
 
+	char *addrTo = NULL;
+	int protectconstant = 0;
+	int size = 0;
+
 	if (lua_gettop(L) == 3)
 	{
-		addr = (char *)(UINT_PTR )lua_tonumber(L,1);
-		if(lua_isstring(lua_Object object))
-		{
-
-		}
-
-		n = lua_tonumber(L,2);
-	}
-	else if(lua_gettop(L) == 1)
-	{
-		outString(hPipe," [NFO] no size supplied, defaulting to size 64\n");
-		addr = (char *)(UINT_PTR )lua_tonumber(L,1);
-		n = 64;
+		addrTo = (char *)(UINT_PTR )lua_tonumber(L,1);
+		size = lua_tonumber(L,2);
+		protectconstant = lua_tonumber(L,3);
 	}
 	else
 	{
-		outString(hPipe," [ERR] hexdump(addr,size) requires 2 arguments\n");
+		outString(hPipe," [ERR] memprotect(dest,size,protect_constant) requires 3 arguments\n");
 		return 0;
 	}
 
+	DWORD oldProtect = 0;
+	int returnstatus = 0;
+
+	returnstatus = VirtualProtect(addrTo,size,protectconstant,&oldProtect);
+	if(returnstatus == 0)
+	{
+		returnstatus = GetLastError();
+	}
+
+	// return oldProtect / GetLastError OR zero
+
+	lua_pushnumber(L,oldProtect);
+	lua_pushnumber(L,returnstatus);
+
+	return 2;
+}
+
+static int cs_memset(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+
+	char *addrTo = NULL;
+	char byteToSet = '\0';
+	int size = 0;
+
+	if (lua_gettop(L) == 3)
+	{
+		addrTo = (char *)(UINT_PTR )lua_tonumber(L,1);
+		if(lua_isstring(L,2))
+		{
+			byteToSet = (char ) ((char *)(lua_tostring(L,2))) [0];
+		}
+		else if(lua_isnumber(L,2))
+		{
+			int byteData = lua_tonumber(L,2);
+			if (byteData > 255)
+			{
+				outString(hPipe," [ERR] can't cast this number to a byte\n");
+				return 0;
+			}
+			byteToSet = (char )byteData;
+		}
+		size = lua_tonumber(L,3);
+	}
+	else
+	{
+		outString(hPipe," [ERR] memcpy(dest,source,size) requires 3 arguments\n");
+		return 0;
+	}
+
+	__try
+	{
+		memset(addrTo,byteToSet,size);
+	}
+	__except( readfilter(GetExceptionCode(), GetExceptionInformation()) )
+	{
+		outString(hPipe," [ERR] could not complete memory set operation\n");
+	}
 
 	return 0;
 }
-*/
+
+static int cs_memcpy(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+
+	char *addrTo = NULL;
+	char *addrFrom = NULL;
+	int size = 0;
+
+	if (lua_gettop(L) == 3)
+	{
+		addrTo = (char *)(UINT_PTR )lua_tonumber(L,1);
+		if(lua_isstring(L,2))
+		{
+			// data blob directly
+			addrFrom = (char *)lua_tostring(L,2);
+		}
+		else if(lua_isnumber(L,2))
+		{
+			// address
+			addrFrom = (char *)(UINT_PTR )lua_tonumber(L,2);
+		}
+		size = lua_tonumber(L,3);
+	}
+	else
+	{
+		outString(hPipe," [ERR] memcpy(dest,source,size) requires 3 arguments\n");
+		return 0;
+	}
+
+	__try
+	{
+		char mbuf[1024];
+		memcpy(addrTo,addrFrom,size);
+		sprintf(mbuf," [NFO] copied %d bytes from 0x%x to 0x%x\n",size,addrFrom,addrTo);
+		outString(hPipe,mbuf);
+	}
+	__except( readfilter(GetExceptionCode(), GetExceptionInformation()) )
+	{
+		outString(hPipe," [ERR] could not complete memory copy operation\n");
+	}
+
+	return 0;
+}
 
 int readfilter(unsigned int code, struct _EXCEPTION_POINTERS *ep) {
    // puts("in filter.");

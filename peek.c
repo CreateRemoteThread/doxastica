@@ -51,6 +51,36 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
+	BOOL keepWaiting = TRUE;
+	while(keepWaiting == TRUE)
+	{
+		do{
+			memset(chBuf,0,1024);
+			fSuccess = ReadFile(hPipe,chBuf,1024,&cbRead,NULL);
+			if ( ! fSuccess && GetLastError() != ERROR_MORE_DATA )
+				break;
+			if ( !(strncmp(chBuf,"INITFINISHED",12) == 0 && chBuf[12] == '\0') )
+			{
+				// don't print a newline
+				printf("%s",chBuf);
+			}
+		}while(!fSuccess);
+			if(!fSuccess)
+		{
+			printf(" [ERR] read failed, gle=%d\n",GetLastError());
+			keepWaiting = FALSE;
+			return -1;
+		}
+		
+		// if(strncmp(chBuf,"NEXTCMDREADY",12) == 0 && chBuf[12] == '\0')
+		if(strncmp(chBuf,"INITFINISHED",12) == 0 && chBuf[12] == '\0')
+		{
+			// =)
+			keepWaiting = FALSE;
+		}
+	}
+
+
 	printf(" > ");
 
 	// err...
