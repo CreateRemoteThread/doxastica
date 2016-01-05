@@ -9,6 +9,7 @@
 #include <signal.h>
 #include <ctype.h>
 #include "shackle.h"
+#include "xedparse\src\XEDParse.h"
 
 #define EOFMARK		"<eof>"
 #define marklen		(sizeof(EOFMARK)/sizeof(char) - 1)

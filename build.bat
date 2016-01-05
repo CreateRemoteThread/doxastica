@@ -23,7 +23,7 @@ IF [%1]==[shackle32] cd ..
 IF [%1]==[shackle32] del lua53\lua.obj
 IF [%1]==[shackle32] del lua53\luac.obj
 IF [%1]==[shackle32] cl /O2 /Zi /c /I lua53 /I beainclude /EHsc /Foshackle32.obj /Tp shackle.c
-IF [%1]==[shackle32] link /DLL /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:shackle32.dll shackle32.obj beasrc/BeaEngine32.obj lua53/*.obj user32.lib psapi.lib
+IF [%1]==[shackle32] link /DLL /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:shackle32.dll shackle32.obj beasrc/BeaEngine32.obj lua53/*.obj user32.lib psapi.lib xedparse/src/*.obj xedparse/xed2/lib/libxed_x86.lib
 
 IF [%1]==[bea32] cd beasrc
 IF [%1]==[bea32] cl /O2 /Zi /c /I ../beainclude /FoBeaEngine32.obj /Tp BeaEngine.c
@@ -38,6 +38,14 @@ IF [%1]==[test64] link /out:test64.exe test64.obj user32.lib
 
 IF [%1]==[test32] cl /O2 /Zi /c /Tp test64.c
 IF [%1]==[test32] link /out:test32.exe test64.obj user32.lib
+
+IF [%1]==[test64] cl /O2 /Zi /c /Tp test64.c
+IF [%1]==[test64] link /out:test64.exe test64.obj user32.lib
+
+IF [%1]==[xed] cd xedparse\src
+IF [%1]==[xed] cl /D XEDPARSE_STATIC /O2 /Zi /c /Tp *.cpp
+IF [%1]==[xed] cd ..
+IF [%1]==[xed] cd ..
 
 IF [%1]==[peek] cl /O2 /Zi /c /Tp peek.c
 IF [%1]==[peek] link /out:peek.exe peek.obj
