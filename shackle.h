@@ -5,6 +5,8 @@ static int cs_mprotect(lua_State *L);
 static int cs_memset(lua_State *L);
 static int cs_malloc(lua_State *L);
 static int cs_resolve(lua_State *l);
+static int cs_memread(lua_State *L);
+static int cs_disassemble(lua_State *L);
 int readfilter(unsigned int code, struct _EXCEPTION_POINTERS *ep);
 
 typedef DWORD (WINAPI * _MessageBoxA) (DWORD, LPCVOID, LPCVOID, DWORD);
@@ -23,6 +25,6 @@ static int multiline (lua_State *L, HANDLE hPipe, int *exitToLoop);
 int lua_readline(lua_State *L, char *buf, char *prompt, HANDLE hPipe, int *exitIoLoop);
 static int docall (lua_State *L, int narg, int nres);
 static int msghandler (lua_State *L) ;
-UINT_PTR resolve(char *address);
+UINT_PTR resolve(HANDLE hPipe, char *address);
 
 void cs_error(lua_State *L, HANDLE hPipe);

@@ -607,19 +607,88 @@ static int test_lua(lua_State *L)
 	return 0;
 }
 
-UINT_PTR resolve(char *address)
-{
-	
-	return NULL;
-}
-
 static int cs_resolve(lua_State *L)
 {
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+
 	size_t l;
-	char* addressToResolve = (char *)lua_tolstring( L, -1 , &l);
+	char* address = (char *)lua_tolstring( L, -1 , &l);
     lua_pop(L, 1);
 
-	lua_pushnumber(L,resolve(addressToResolve));
+	char mbuf[1024];
+	memset(mbuf,0,1024);
+
+	sprintf(mbuf," [NFO] resolving '%s'\n",address);
+	outString(hPipe,mbuf);
+
+	char *baseDll = NULL;
+	char *function = NULL;
+	char *offset = NULL;
+	
+	int i = 0, maxlen = strlen(address);
+	baseDll = address;
+
+	for( ; i < maxlen; i++)
+	{
+		if(address[i] == '!')
+		{
+			address[i] = '\0';
+			function = baseDll + i + 1;
+		}
+		else if(address[i] == '+')
+		{
+			address[i] = '\0';
+			offset = baseDll + i + 1;
+		}
+	}
+
+	if(baseDll == NULL)
+	{
+		outString(hPipe," [ERR] no base dll provided (wtf?)\n");
+		return 0;
+	}
+	
+	UINT_PTR base = 0;
+	if(function  == NULL)
+	{
+		MODULEINFO *mi = (MODULEINFO *)malloc( sizeof(MODULEINFO) );
+		memset(mi,0,sizeof(MODULEINFO));
+		HMODULE hMod = GetModuleHandle(baseDll);
+		if(hMod == NULL)
+		{
+			outString(hPipe," [ERR] could not get handle of module (make sure it's loaded)\n");
+			free(mi);
+			return 0;
+		}
+		GetModuleInformation(GetCurrentProcess(),hMod,mi,sizeof(MODULEINFO));
+		base = (UINT_PTR )mi->lpBaseOfDll;
+		free(mi);
+		// return 1;
+	}
+	else
+	{
+		HMODULE hMod = GetModuleHandle(baseDll);
+		if(hMod == NULL)
+		{
+			outString(hPipe," [ERR] could not get handle of module (make sure it's loaded)\n");
+			return 0;
+		}
+		base = (UINT_PTR )GetProcAddress(hMod,function);
+		if (base == NULL)
+		{
+			outString(hPipe," [ERR] could not resolve function\n");
+			return 0;
+		}
+	}
+
+	if(offset != NULL)
+	{
+		base += atol(offset);
+	}
+
+	lua_pushnumber(L,base);
 	return 1;
 }
 
@@ -655,6 +724,9 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	lua_register(luaState,"memset",cs_memset);
 	lua_register(luaState,"malloc",cs_malloc);
 	lua_register(luaState,"mprotect",cs_mprotect);
+	lua_register(luaState,"memread",cs_memread);
+	lua_register(luaState,"disasm",cs_disassemble);
+	lua_register(luaState,"resolve",cs_resolve);
 
 	// mprotect constants
 	luaL_dostring(luaState,"PAGE_EXECUTE = 0x10");
@@ -695,16 +767,26 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	// collect process modules for resolver
 	HMODULE hMods[1024];
 	DWORD cbNeeded = 0;
+	MODULEINFO modInfo;
 	if( EnumProcessModules( hProcess, hMods, sizeof(hMods),&cbNeeded) )
 	{
 		int i = 0;
 		for (; i < (cbNeeded / sizeof(HMODULE)); i++)
 		{
 			char szModName[1024];
+			GetModuleInformation(hProcess,hMods[i],&modInfo,sizeof(modInfo));
 			if(GetModuleFileNameEx( hProcess,hMods[i],szModName,sizeof(szModName) / sizeof(char)) )
 			{
-				sprintf(mbuf," + %s (0x%08x)\n",szModName,hMods[i]);
-				outString(hPipe,mbuf);
+				if ( GetModuleInformation(hProcess,hMods[i],&modInfo,sizeof(modInfo)) )
+				{
+					sprintf(mbuf," + %s (0x%08x) (EP:0x%0x)\n",szModName,hMods[i],modInfo.EntryPoint);
+					outString(hPipe,mbuf);
+				}
+				else
+				{
+					sprintf(mbuf," + %s (0x%08x)\n",szModName,hMods[i]);
+					outString(hPipe,mbuf);
+				}
 			}
 		}
 	}
@@ -902,12 +984,14 @@ static int cs_memset(lua_State *L)
 	char byteToSet = '\0';
 	int size = 0;
 
+	size_t msize = 0;
+
 	if (lua_gettop(L) == 3)
 	{
 		addrTo = (char *)(UINT_PTR )lua_tonumber(L,1);
 		if(lua_isstring(L,2))
 		{
-			byteToSet = (char ) ((char *)(lua_tostring(L,2))) [0];
+			byteToSet = (char ) ((char *)(lua_tolstring(L,2,&msize))) [0];
 		}
 		else if(lua_isnumber(L,2))
 		{
@@ -925,6 +1009,13 @@ static int cs_memset(lua_State *L)
 	{
 		outString(hPipe," [ERR] memcpy(dest,source,size) requires 3 arguments\n");
 		return 0;
+	}
+
+	if(msize != size)
+	{
+		char mbuf[1024];
+		sprintf(mbuf," [WRN] string size (%d) is not equal to provided size / arg 3 (%d)\n",msize,size);
+		outString(hPipe,mbuf);
 	}
 
 	__try
@@ -995,6 +1086,102 @@ int readfilter(unsigned int code, struct _EXCEPTION_POINTERS *ep) {
       puts("didn't catch AV, unexpected.");
       return EXCEPTION_CONTINUE_SEARCH;
    };
+}
+
+static int cs_disassemble(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+
+	char *addrTo = NULL;
+	int size = 0;
+
+	if (lua_gettop(L) == 2)
+	{
+		addrTo = (char *)(UINT_PTR )lua_tonumber(L,1);
+		size = lua_tonumber(L,2);
+	}
+	else if (lua_gettop(L) == 1)
+	{
+		addrTo = (char *)(UINT_PTR )lua_tonumber(L,1);
+		size = 5;
+		outString(hPipe," [NFO] assuming you want to disassemble 5 instructions\n");
+	}
+	else
+	{
+		outString(hPipe," [ERR] diasm(addr,{size}) requires 1-2 arguments\n");
+		return 0;
+	}
+
+	char mbuf[1024];        // sprintf buffer
+	char tempBuf[15];       // temp buf
+	int currentHeader = 0;
+	DISASM *d = (DISASM *)malloc(sizeof(DISASM));
+
+	memset(d,0,sizeof(DISASM));
+	d->Archi = ARCHI;
+	int len = 0;
+	
+	int i = 0;
+	for(;i < size;i++)
+	{
+		len = 1;
+		__try
+		{
+			d->EIP = (UIntPtr )(addrTo+currentHeader);
+			memcpy(tempBuf,(void *)(addrTo+currentHeader),15);
+			len = Disasm(d);
+
+			sprintf(mbuf," 0x%0x : %s\n",(UIntPtr )(addrTo+currentHeader),d->CompleteInstr);
+			outString(hPipe,mbuf);
+
+		}
+		__except( readfilter(GetExceptionCode(), GetExceptionInformation()) )
+		{
+			sprintf(mbuf," 0x%0x : ..\n",(UIntPtr )(addrTo+currentHeader));
+			outString(hPipe," ..\n");
+		}
+		currentHeader += len;
+	}
+
+	free(d);
+
+	return 0;
+}
+
+static int cs_memread(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+
+	size_t l;
+	char* addressToResolve = (char *)lua_tolstring( L, -1 , &l);
+    lua_pop(L, 1);
+
+	char *addrTo = NULL;
+	int size = 0;
+
+	if (lua_gettop(L) == 2)
+	{
+		addrTo = (char *)(UINT_PTR )lua_tonumber(L,1);
+		size = lua_tonumber(L,2);
+	}
+	else
+	{
+		outString(hPipe," [ERR] memread(addr,size) requires 2 arguments\n");
+		return 0;
+	}
+
+	char *temp = (char *)malloc(size);
+	memcpy(temp,addrTo,size);
+
+	lua_pushlstring(L,temp,size);
+
+	free(temp);
+
+	return 1;
 }
 
 static int cs_hexdump(lua_State *L)
