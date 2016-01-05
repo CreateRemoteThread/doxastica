@@ -9,25 +9,29 @@ IF [%1]==[ldr64] link /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:ldr64.exe ld
 IF [%1]==[ldr32] cl /O2 /Zi /c /Foldr32.obj /Tp ldr.c
 IF [%1]==[ldr32] link /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:ldr32.exe ldr32.obj
 
-IF [%1]==[shackle64] cd lua53
-IF [%1]==[shackle64] cl /D LUA_COMPAT_5_2 /D LUA_BUILD_AS_DLL /O2 /c /EHsc /TP *.c
-IF [%1]==[shackle64] cd ..
-IF [%1]==[shackle64] del lua53\lua.obj
-IF [%1]==[shackle64] del lua53\luac.obj
 IF [%1]==[shackle64] cl /D ARCHI_64 /O2 /Zi /c /I lua53 /I beainclude /EHsc /Foshackle64.obj /Tp shackle.c
-IF [%1]==[shackle64] link /DLL /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:shackle64.dll shackle64.obj beasrc/BeaEngine64.obj lua53/*.obj user32.lib psapi.lib
+IF [%1]==[shackle64] link /DLL /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:shackle64.dll shackle64.obj beasrc/BeaEngine64.obj lua64/*.obj user32.lib psapi.lib xed64/*.obj xedparse/xed2/lib/libxed_x64.lib
 
-IF [%1]==[shackle32] cd lua53
-IF [%1]==[shackle32] cl /D LUA_COMPAT_5_2 /D LUA_BUILD_AS_DLL /O2 /c /EHsc /TP *.c
-IF [%1]==[shackle32] cd ..
-IF [%1]==[shackle32] del lua53\lua.obj
-IF [%1]==[shackle32] del lua53\luac.obj
 IF [%1]==[shackle32] cl /O2 /Zi /c /I lua53 /I beainclude /EHsc /Foshackle32.obj /Tp shackle.c
-IF [%1]==[shackle32] link /DLL /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:shackle32.dll shackle32.obj beasrc/BeaEngine32.obj lua53/*.obj user32.lib psapi.lib xedparse/src/*.obj xedparse/xed2/lib/libxed_x86.lib
+IF [%1]==[shackle32] link /DLL /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:shackle32.dll shackle32.obj beasrc/BeaEngine32.obj lua32/*.obj user32.lib psapi.lib xed32/*.obj xedparse/xed2/lib/libxed_x86.lib
 
 IF [%1]==[bea32] cd beasrc
 IF [%1]==[bea32] cl /O2 /Zi /c /I ../beainclude /FoBeaEngine32.obj /Tp BeaEngine.c
 IF [%1]==[bea32] cd ..
+
+IF [%1]==[lua32] cd lua53 
+IF [%1]==[lua32] cl /D LUA_COMPAT_5_2 /D LUA_BUILD_AS_DLL /O2 /c /EHsc /TP *.c
+IF [%1]==[lua32] del lua.obj
+IF [%1]==[lua32] del luac.obj
+IF [%1]==[lua32] cd ..
+IF [%1]==[lua32] move lua53\*.obj lua32
+
+IF [%1]==[lua64] cd lua53 
+IF [%1]==[lua64] cl /D LUA_COMPAT_5_2 /D LUA_BUILD_AS_DLL /O2 /c /EHsc /TP *.c
+IF [%1]==[lua64] del lua.obj
+IF [%1]==[lua64] del luac.obj
+IF [%1]==[lua64] cd ..
+IF [%1]==[lua64] move lua53\*.obj lua64
 
 IF [%1]==[bea64] cd beasrc
 IF [%1]==[bea64] cl /O2 /Zi /c /I ../beainclude /FoBeaEngine64.obj /Tp BeaEngine.c
@@ -42,10 +46,19 @@ IF [%1]==[test32] link /out:test32.exe test64.obj user32.lib
 IF [%1]==[test64] cl /O2 /Zi /c /Tp test64.c
 IF [%1]==[test64] link /out:test64.exe test64.obj user32.lib
 
-IF [%1]==[xed] cd xedparse\src
-IF [%1]==[xed] cl /D XEDPARSE_STATIC /O2 /Zi /c /Tp *.cpp
-IF [%1]==[xed] cd ..
-IF [%1]==[xed] cd ..
+IF [%1]==[xed32] del xed32\*.*
+IF [%1]==[xed32] cd xedparse\src
+IF [%1]==[xed32] cl /D XEDPARSE_STATIC /O2 /Zi /c /Tp *.cpp
+IF [%1]==[xed32] cd ..
+IF [%1]==[xed32] cd ..
+IF [%1]==[xed32] move xedparse/src/*.obj xed32
+
+IF [%1]==[xed64] del xed64\*.*
+IF [%1]==[xed64] cd xedparse\src
+IF [%1]==[xed64] cl /D XEDPARSE_STATIC /O2 /Zi /c /Tp *.cpp
+IF [%1]==[xed64] cd ..
+IF [%1]==[xed64] cd ..
+IF [%1]==[xed64] move xedparse/src/*.obj xed64
 
 IF [%1]==[peek] cl /O2 /Zi /c /Tp peek.c
 IF [%1]==[peek] link /out:peek.exe peek.obj

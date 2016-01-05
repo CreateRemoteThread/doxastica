@@ -727,6 +727,9 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	lua_register(luaState,"mprotect",cs_mprotect);
 	lua_register(luaState,"memread",cs_memread);
 	lua_register(luaState,"disasm",cs_disassemble);
+	lua_register(luaState,"disassemble",cs_disassemble);
+	lua_register(luaState,"asm",cs_disassemble);
+	lua_register(luaState,"assemble",cs_disassemble);
 	lua_register(luaState,"resolve",cs_resolve);
 
 	// mprotect constants
@@ -897,7 +900,7 @@ lua API (invoke via peek)
 
 - void hexdump(addr offset, int size)
 - void disassemble(addr offset, int instructionLength)
-- str cs_assemble(str input)
+- str cs_assemble(addr offset, str input)
 - void memcpy(addr offset, string data, int size)
 - void memset(addr offset, char data, int size)
 - (status, oldprotect) = mprotect(addr offset, size, int protectionconstant) // really virtualprotect, but sure.
@@ -1089,6 +1092,89 @@ int readfilter(unsigned int code, struct _EXCEPTION_POINTERS *ep) {
    };
 }
 
+static int cs_assemble(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+
+	UINT_PTR startAddress = 0;
+	size_t asmSize;
+	char* asmData;
+
+	if (lua_gettop(L) == 2)
+	{
+		startAddress = (UINT_PTR )lua_tonumber(L,1);
+		asmData =  (char *)lua_tolstring( L, 2 ,&asmSize);
+	}
+	else
+	{
+		outString(hPipe," [ERR] asm(address,data) requires 2 arguments\n");
+		return 0;
+	}
+
+	if(asmSize >= 256)
+	{
+		outString(hPipe," [ERR] assembly data too large (64 byte maximum)\n");
+		return 0;
+	}
+
+	// http://www.jmpoep.com/thread-223-1-1.html
+	/*
+		XEDPARSE parse;
+        memset(&parse, 0, sizeof(parse));
+        parse.x64 = false;
+        parse.cip = dwASM;
+        memset(parse.instr, 0, 256);
+        memcpy(parse.instr, MyDisasm.CompleteInstr, 64);
+        XEDPARSE_STATUS status = XEDParseAssemble(&parse);
+        if (status == XEDPARSE_ERROR)
+        {
+                MyOutputDebugStringA("Parse Error:%s", parse.error);
+                MyOutputDebugStringA("AddHook Failed:0x%p", dwHookAddr);
+                return false;
+        }
+        memcpy(&Shell[dwASM - dwStart], &parse.dest[0], parse.dest_size);
+
+        dwASM += parse.dest_size;
+        MyDisasm.EIP  += nInstLen;
+        if (nSize >= 5)
+        {
+                m_dwRetAddr = MyDisasm.EIP;
+                m_dwHookAddr = dwHookAddr;
+                break;
+        }
+	*/
+	char mbuf[1024];
+
+	XEDPARSE parse;
+	memset(&parse, 0, sizeof(parse));
+	#ifdef ARCHI_64
+	    parse.x64 = true;
+	#else
+		parse.x64 = false;
+	#endif
+    parse.cip = startAddress;
+
+	memset(parse.instr, 0, 256);
+    memcpy(parse.instr, asmData, 256);
+
+	XEDPARSE_STATUS status = XEDParseAssemble(&parse);
+	if (status == XEDPARSE_ERROR)
+    {
+		sprintf(mbuf," [ERR] parse error: %s\n",parse.error);
+		outString(hPipe,mbuf);
+		return 0;
+    }
+	else
+	{
+		lua_pushlstring(L, (const char *)&parse.dest[0], parse.dest_size);
+		return 1;
+	}
+	
+	return 0;
+}
+
 static int cs_disassemble(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
@@ -1157,9 +1243,11 @@ static int cs_memread(lua_State *L)
 	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
 	lua_pop(L,1);
 
+	/*
 	size_t l;
 	char* addressToResolve = (char *)lua_tolstring( L, -1 , &l);
     lua_pop(L, 1);
+	*/
 
 	char *addrTo = NULL;
 	int size = 0;
