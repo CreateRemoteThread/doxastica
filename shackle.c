@@ -9,7 +9,6 @@
 #include <signal.h>
 #include <ctype.h>
 #include "shackle.h"
-#include "asmobj.h"
 #include "xedparse\src\XEDParse.h"
 
 #define EOFMARK		"<eof>"
@@ -729,8 +728,10 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	lua_register(luaState,"memread",cs_memread);
 	lua_register(luaState,"disasm",cs_disassemble);
 	lua_register(luaState,"disassemble",cs_disassemble);
-	lua_register(luaState,"asm",cs_disassemble);
-	lua_register(luaState,"assemble",cs_disassemble);
+	lua_register(luaState,"asm_new",cs_asm_new);
+	lua_register(luaState,"asm_add",cs_asm_add);
+	lua_register(luaState,"asm_commit",cs_asm_commit);
+	lua_register(luaState,"asm_free",cs_asm_free);
 	lua_register(luaState,"resolve",cs_resolve);
 
 	// mprotect constants
@@ -1281,4 +1282,248 @@ void outString(HANDLE hPipe, char *thisMsg)
 	WriteFile(hPipe,thisMsg,strlen(thisMsg) + 1,&bytesWritten,NULL);
 	OutputDebugString(thisMsg);
 	return;
+}
+
+static int cs_asm_new(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+
+	UINT_PTR startAddress = NULL;
+	int architecture = 32;
+
+	if (lua_gettop(L) == 2)
+	{
+		startAddress = (UINT_PTR )lua_tonumber(L,1);
+		architecture =  lua_tonumber(L,2);
+	}
+	else
+	{
+		outString(hPipe," [ERR] asm_new(offset,[32|64]) requires 2 arguments\n");
+		return 0;
+	}
+
+	if(architecture != 32 && architecture != 64)
+	{
+		outString(hPipe," [ERR] asm_new(offset,[32|64]) / XEDParse only supports 32-bit and 64-bit intel architecture\n");
+		return 0;
+	}
+
+	asmBuffer *d = (asmBuffer *)malloc(sizeof(asmBuffer));
+	memset(d,0,sizeof(asmBuffer));
+
+	d->writeHead = startAddress;
+	d->architecture = architecture;
+	d->lineCount = 0;
+
+	outString(hPipe," [NFO] asm_new() allocated new assembly buffer\n");
+	lua_pushlightuserdata(L,(void *)d); // gc doesn't apply here.
+	return 1;
+}
+
+static int cs_asm_add(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+
+	asmBuffer *a = NULL;
+	char *newLine = NULL;
+
+	if (lua_gettop(L) == 2)
+	{
+		a = (asmBuffer *)lua_touserdata(L,1);
+		newLine = (char *)lua_tostring(L,2);
+	}
+	else
+	{
+		outString(hPipe," [ERR] asm_add(asmobj,assembly_data) requires 2 arguments\n");
+		return 0;
+	}
+
+	a->lines[a->lineCount] = _strdup(newLine);
+	a->lineCount += 1;
+
+	return 0;
+}
+
+static int cs_asm_free(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+
+	asmBuffer *a = NULL;
+
+	if (lua_gettop(L) == 1)
+	{
+		a = (asmBuffer *)lua_touserdata(L,1);
+	}
+	else
+	{
+		outString(hPipe," [ERR] asm_free(asmobj) requires 1 argument\n");
+		return 0;
+	}
+
+	int i = 0;
+	for( ; i < a->lineCount; a++ )
+	{
+		free(a->lines[i]);
+	}
+
+	return 0;
+}
+
+static int cs_asm_commit(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+
+	asmBuffer *a = NULL;
+
+	if (lua_gettop(L) == 1)
+	{
+		a = (asmBuffer *)lua_touserdata(L,1);
+	}
+	else
+	{
+		outString(hPipe," [ERR] asm_commit(asmobj) requires 1 argument\n");
+		return 0;
+	}
+
+	char mbuf[1024];
+	sprintf(mbuf," [NFO] committing %d lines of assembly\n",a->lineCount);
+	outString(hPipe,mbuf);
+
+	// a->lines[a->lineCount] = _strdup(newLine);
+	// a->lineCount += 1;
+
+	XEDPARSE parse;
+	memset(&parse, 0, sizeof(parse));
+	parse.x64 = false;
+	if(a->architecture == 64)
+	{
+		parse.x64 = true;
+	}
+
+	int i = 0;
+	char *assemblyBuf = (char *)malloc(a->lineCount * 15);
+	int writeHeader = 0;
+
+	parse.cip = a->writeHead;
+
+	for( ; i < a->lineCount ; i++)
+	{
+		parse.cip += writeHeader;
+		memset(parse.instr, 0, 256);
+		memcpy(parse.instr, a->lines[i], 256);
+
+		XEDPARSE_STATUS status = XEDParseAssemble(&parse);
+		if (status == XEDPARSE_ERROR)
+		{
+			sprintf(mbuf," [ERR] parse error on line %d: %s\n", i , parse.error);
+			outString(hPipe,mbuf);
+			return 0;
+		}
+		else
+		{
+			sprintf(mbuf," 0x%0x : %s\n",(UINT_PTR )parse.cip,parse.instr);
+			outString(hPipe,mbuf);
+			memcpy( (char *)(assemblyBuf + writeHeader), (char *)&parse.dest[0], parse.dest_size);
+			writeHeader += parse.dest_size;
+		}
+	}
+
+	memcpy((void *)a->writeHead,assemblyBuf,writeHeader);
+	free(assemblyBuf);
+
+	return 0;
+}
+
+static int cs_assemble(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+
+	UINT_PTR startAddress = 0;
+	size_t asmSize;
+	char* asmData;
+
+	if (lua_gettop(L) == 2)
+	{
+		startAddress = (UINT_PTR )lua_tonumber(L,1);
+		asmData =  (char *)lua_tolstring( L, 2 ,&asmSize);
+	}
+	else
+	{
+		outString(hPipe," [ERR] asm(address,data) requires 2 arguments\n");
+		return 0;
+	}
+
+	if(asmSize >= 256)
+	{
+		outString(hPipe," [ERR] assembly data too large (64 byte maximum)\n");
+		return 0;
+	}
+
+	// http://www.jmpoep.com/thread-223-1-1.html
+	/*
+		XEDPARSE parse;
+        memset(&parse, 0, sizeof(parse));
+        parse.x64 = false;
+        parse.cip = dwASM;
+        memset(parse.instr, 0, 256);
+        memcpy(parse.instr, MyDisasm.CompleteInstr, 64);
+        XEDPARSE_STATUS status = XEDParseAssemble(&parse);
+        if (status == XEDPARSE_ERROR)
+        {
+                MyOutputDebugStringA("Parse Error:%s", parse.error);
+                MyOutputDebugStringA("AddHook Failed:0x%p", dwHookAddr);
+                return false;
+        }
+        memcpy(&Shell[dwASM - dwStart], &parse.dest[0], parse.dest_size);
+
+        dwASM += parse.dest_size;
+        MyDisasm.EIP  += nInstLen;
+        if (nSize >= 5)
+        {
+                m_dwRetAddr = MyDisasm.EIP;
+                m_dwHookAddr = dwHookAddr;
+                break;
+        }
+	*/
+	char mbuf[1024];
+
+	XEDPARSE parse;
+	memset(&parse, 0, sizeof(parse));
+	#ifdef ARCHI_64
+	    parse.x64 = true;
+	#else
+		parse.x64 = false;
+	#endif
+    parse.cip = startAddress;
+
+	memset(parse.instr, 0, 256);
+    memcpy(parse.instr, asmData, 256);
+
+	XEDPARSE_STATUS status = XEDParseAssemble(&parse);
+	if (status == XEDPARSE_ERROR)
+    {
+		sprintf(mbuf," [ERR] parse error: %s\n",parse.error);
+		outString(hPipe,mbuf);
+		return 0;
+    }
+	else
+	{
+		// outString(hPipe,mbuf);
+		lua_pushlstring(L, (const char *)&parse.dest[0], parse.dest_size);
+		return 1;
+	}
+
+	
+	
+	return 0;
 }

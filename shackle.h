@@ -28,3 +28,30 @@ static int msghandler (lua_State *L) ;
 UINT_PTR resolve(HANDLE hPipe, char *address);
 
 void cs_error(lua_State *L, HANDLE hPipe);
+
+/*
+  lua jit-assembler:
+    asmobj = asm_new(0x00401000,32)
+    asm_add(asmobj,"mov eax,1024")
+	asm_add(asmobj,"push eax")
+	asm_add(asmobj,"ret")
+    asm_commit(asmobj)
+	asm_free(asmobj)
+*/
+
+// simplicity's sake
+// we use 1024 lines at once
+struct asmBuffer
+{
+	UINT_PTR writeHead;           // where asm_write writes to
+	int lineCount;                // how many lines of assembly do we have
+	int architecture;             // 32 or 64 (for glorious cross-architecture assembler)
+	char *lines[1024];            // actual line buffer (JIT assembled at asm_write)
+};
+
+
+static int cs_asm_new(lua_State *L);
+static int cs_asm_add(lua_State *L);
+static int cs_asm_commit(lua_State *L);
+static int cs_asm_free(lua_State *L);
+static int cs_assemble(lua_State *L);
