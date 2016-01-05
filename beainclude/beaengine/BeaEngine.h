@@ -373,7 +373,7 @@ enum SPECIAL_INFO
 extern "C"
 #endif
 
-BEA_API int __bea_callspec__ Disasm (LPDISASM pDisAsm);
+int __bea_callspec__ Disasm (LPDISASM pDisAsm);
 BEA_API const__ char* __bea_callspec__ BeaEngineVersion (void);
 BEA_API const__ char* __bea_callspec__ BeaEngineRevision (void);
 #if  defined(__cplusplus) && defined(__BORLANDC__)

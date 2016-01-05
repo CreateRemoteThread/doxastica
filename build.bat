@@ -9,11 +9,13 @@ IF [%1]==[ldr64] link /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:ldr64.exe ld
 IF [%1]==[ldr32] cl /O2 /Zi /c /Foldr32.obj /Tp ldr.c
 IF [%1]==[ldr32] link /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:ldr32.exe ldr32.obj
 
+IF [%1]==[shackle64] cl /O2 /Zi /c /I lua53 /EHsc /Foasmobj64.obj /Tp asmobj.c
 IF [%1]==[shackle64] cl /D ARCHI_64 /O2 /Zi /c /I lua53 /I beainclude /EHsc /Foshackle64.obj /Tp shackle.c
-IF [%1]==[shackle64] link /DLL /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:shackle64.dll shackle64.obj beasrc/BeaEngine64.obj lua64/*.obj user32.lib psapi.lib xed64/*.obj xedparse/xed2/lib/libxed_x64.lib
+IF [%1]==[shackle64] link /DLL /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:shackle64.dll shackle64.obj beasrc/BeaEngine64.obj lua64/*.obj user32.lib psapi.lib xed64/*.obj xedparse/xed2/lib/libxed_x64.lib asmobj64.obj
 
+IF [%1]==[shackle32] cl /O2 /Zi /c /I lua53 /EHsc /Foasmobj32.obj /Tp asmobj.c
 IF [%1]==[shackle32] cl /O2 /Zi /c /I lua53 /I beainclude /EHsc /Foshackle32.obj /Tp shackle.c
-IF [%1]==[shackle32] link /DLL /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:shackle32.dll shackle32.obj beasrc/BeaEngine32.obj lua32/*.obj user32.lib psapi.lib xed32/*.obj xedparse/xed2/lib/libxed_x86.lib
+IF [%1]==[shackle32] link /DLL /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:shackle32.dll shackle32.obj beasrc/BeaEngine32.obj lua32/*.obj user32.lib psapi.lib xed32/*.obj xedparse/xed2/lib/libxed_x86.lib asmobj32.obj
 
 IF [%1]==[bea32] cd beasrc
 IF [%1]==[bea32] cl /O2 /Zi /c /I ../beainclude /FoBeaEngine32.obj /Tp BeaEngine.c

@@ -15,14 +15,7 @@ as lua to be interpreted by an embedded lua 5p3 engine
 this project does not use any debug functionality - shackle runs as it's own
 collection of threads within the host process.
 
-## example: pwn adventure 3
-
-pwn adventure 3 (http://pwnadventure.com/) is a part of ghost in the shellcode
-2015, and consists of an mmorpg style game. for our adventure, we will be looking
-at the windows version of the game, and modifying the player's running speed!
-
-PWNADVENTURES\PwnAdventure3_Data\PwnAdventure3\PwnAdventure3\Binaries\Win32\PwnAdventure3-Win32-Shipping.exe
-(md5sum 51b53981e188d4e54f6e69079f924a08)
+## TODO WRITE SOME DOCS
 
 ## dragons below etc
 
@@ -61,3 +54,4 @@ this code borrows heavily from other sources. these are listed below:
 - https://gist.github.com/randrews/939029
 - http://pastebin.com/HbWNAV99
 - beatrix2004.free.fr
+- https://github.com/x64dbg/XEDParse/
