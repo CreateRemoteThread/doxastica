@@ -9,6 +9,7 @@
 #include <signal.h>
 #include <ctype.h>
 #include "shackle.h"
+#include "search.h"
 #include "xedparse\src\XEDParse.h"
 
 #define EOFMARK		"<eof>"
@@ -608,6 +609,111 @@ static int test_lua(lua_State *L)
 	return 0;
 }
 
+// FOR NOW: DWORDS ONLY.
+static int cs_search_filter(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+
+	if (lua_gettop(L) == 2)
+	{
+		searchResult *oldResults = (searchResult *)lua_touserdata(L,1);
+		DWORD newFilter = (DWORD )lua_tonumber(L,2);
+		int newResults = search_filter_dword(oldResults, newFilter);
+		lua_pushnumber(L,newResults);
+		return 1;
+	}
+	else
+	{
+		outString(hPipe," [ERR] search_filter(results,new_dword) requires 2 arguments\n");
+		return 0;
+	}
+	return 0;
+}
+
+static int cs_search_dword(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+
+	SYSTEM_INFO si;       // for dwPageSize
+
+	GetSystemInfo(&si);
+
+	char mbuf[1024];
+
+	DWORD valueToSearch = 0;
+	UINT_PTR start = 0;
+	#if ARCHI == 64
+		UINT_PTR hardMax = 0x7FFFFFFFFFFFFFFF;
+	#else
+		UINT_PTR hardMax = 0x7FFFFFFF;
+	#endif
+
+	if (lua_gettop(L) == 1)
+	{
+		valueToSearch = (DWORD )lua_tonumber(L,1);
+	}
+	else if (lua_gettop(L) == 2)
+	{
+		valueToSearch = (DWORD )lua_tonumber(L,1);
+		start = (UINT_PTR )lua_tonumber(L,2);
+	}
+	else if (lua_gettop(L) == 3)
+	{
+		valueToSearch = (DWORD )lua_tonumber(L,1);
+		start = (UINT_PTR )lua_tonumber(L,2);
+		hardMax = (UINT_PTR )lua_tonumber(L,3);
+	}
+	else
+	{
+		outString(hPipe," [ERR] search_dword(dword,startAddress,endAddress) requires at least 1 argument\n");
+		return 0;
+	}
+
+	sprintf(mbuf," [NFO] scanning from 0x%0x to 0x%0x (pagesize=%d) for dword value 0x%0x\n", 0, hardMax, si.dwPageSize, valueToSearch);	
+	outString(hPipe,mbuf);
+
+	// allow for 1024 instances at once.
+	int chunkAllocatorSize = 1024;
+	UINT_PTR readStart = 0;
+	int skippedPages = 0;
+
+	int totalSolutionCount = 0;
+
+	searchResult *results = NULL;
+
+	for( readStart ; readStart < hardMax ; readStart += si.dwPageSize )
+	{
+		int solutionCount = 0;
+		UINT_PTR *solutions = (UINT_PTR *)malloc(sizeof(UINT_PTR) * (si.dwPageSize / 4));
+
+		if( page_search_dword(readStart,si.dwPageSize,&solutionCount,solutions,valueToSearch) )
+		{
+			if(solutionCount != 0)
+			{
+				totalSolutionCount += solutionCount;
+				results = mergeResults(results,solutionCount,solutions);
+			}
+		}
+		else
+		{
+			skippedPages += 1;
+		}
+
+		
+		free(solutions);
+	}
+
+	sprintf(mbuf," [NFO] %d instances found, %d pages skipped\n",totalSolutionCount, skippedPages);
+	outString(hPipe,mbuf);
+	
+	lua_pushlightuserdata(L,(void *)results);
+	return 1;
+}
+
 static int cs_resolve(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
@@ -719,7 +825,6 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	luaL_openlibs(luaState);
 	// lua_register(luaState,"test_lua",test_lua);
 	lua_register(luaState,"print",cs_print);
-	lua_register(luaState,"_ALERT",cs_ALERT);
 	lua_register(luaState,"hexdump",cs_hexdump);
 	lua_register(luaState,"memcpy",cs_memcpy);
 	lua_register(luaState,"memset",cs_memset);
@@ -733,6 +838,8 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	lua_register(luaState,"asm_commit",cs_asm_commit);
 	lua_register(luaState,"asm_free",cs_asm_free);
 	lua_register(luaState,"resolve",cs_resolve);
+	lua_register(luaState,"search_filter",cs_search_filter);
+	lua_register(luaState,"search_dword",cs_search_dword);
 
 	// mprotect constants
 	luaL_dostring(luaState,"PAGE_EXECUTE = 0x10");
@@ -934,7 +1041,7 @@ static int cs_malloc(lua_State *L)
 	UINT_PTR returnvalue = (UINT_PTR )malloc(size);
 	memset((void *)returnvalue,0,size);
 
-	sprintf(mbuf," [NFO] allocated %d bytes at 0x%x",size,returnvalue);
+	sprintf(mbuf," [NFO] allocated %d bytes at 0x%x\n",size,returnvalue);
 	outString(hPipe,mbuf);
 
 	lua_pushnumber(L,returnvalue);
@@ -971,8 +1078,6 @@ static int cs_mprotect(lua_State *L)
 	{
 		returnstatus = GetLastError();
 	}
-
-	// return oldProtect / GetLastError OR zero
 
 	lua_pushnumber(L,oldProtect);
 	lua_pushnumber(L,returnstatus);
@@ -1342,7 +1447,7 @@ static int cs_asm_add(lua_State *L)
 		return 0;
 	}
 
-	a->lines[a->lineCount] = _strdup(newLine);
+	a->lines[a->lineCount] = strdup(newLine);
 	a->lineCount += 1;
 
 	return 0;
@@ -1366,11 +1471,19 @@ static int cs_asm_free(lua_State *L)
 		return 0;
 	}
 
+	printf("");
+
 	int i = 0;
 	for( ; i < a->lineCount; a++ )
 	{
-		free(a->lines[i]);
+		if(a->lines[i] != 0)
+		{
+			free(a->lines[i]);
+			a->lines[i] = 0;
+		}
 	}
+
+	a->lineCount = 0;
 
 	return 0;
 }
@@ -1397,7 +1510,7 @@ static int cs_asm_commit(lua_State *L)
 	sprintf(mbuf," [NFO] committing %d lines of assembly\n",a->lineCount);
 	outString(hPipe,mbuf);
 
-	// a->lines[a->lineCount] = _strdup(newLine);
+	// a->lines[a->lineCount] = strdup(newLine);
 	// a->lineCount += 1;
 
 	XEDPARSE parse;
@@ -1436,7 +1549,15 @@ static int cs_asm_commit(lua_State *L)
 		}
 	}
 
-	memcpy((void *)a->writeHead,assemblyBuf,writeHeader);
+	__try{
+		memcpy((void *)a->writeHead,assemblyBuf,writeHeader);
+	}
+	__except( readfilter(GetExceptionCode(), GetExceptionInformation()) )
+	{
+		sprintf(mbuf," [ERR] access violation. make sure you can write to 0x%x\n",a->writeHead);
+		outString(hPipe,mbuf);
+	}
+
 	free(assemblyBuf);
 
 	return 0;
@@ -1522,8 +1643,6 @@ static int cs_assemble(lua_State *L)
 		lua_pushlstring(L, (const char *)&parse.dest[0], parse.dest_size);
 		return 1;
 	}
-
-	
 	
 	return 0;
 }
