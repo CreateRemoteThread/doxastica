@@ -61,13 +61,33 @@ int search_filter_dword(searchResult *m, DWORD newvalue)
 	return remainingSolutions;
 }
 
+// fast check, we can call it twice. 
+int validateSearchResult(searchResult *m)
+{
+	__try
+	{
+		if(m->signature == SEARCH_SIG)
+		{
+			return 1;
+		}
+		else
+		{
+			return 0;
+		}
+	}
+	__except(true){
+		return 0;
+	}
+}
+
 searchResult *mergeResults(searchResult *m, int solutionCount, UINT_PTR *solns)
 {
 	searchResult *newResult = NULL;
 	if (m == NULL)
 	{
 		// new result
-		newResult = (searchResult *)malloc(sizeof(searchResult));
+		newResult = (searchResult *)malloc(sizeof(searchResult));\
+		newResult->signature = SEARCH_SIG;
 		newResult->numSolutions = solutionCount;
 		int chunksToAllocate = (solutionCount / 1024) + 1;
 		newResult->numSolutionsMaximum = chunksToAllocate * 1024;

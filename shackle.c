@@ -609,6 +609,34 @@ static int test_lua(lua_State *L)
 	return 0;
 }
 
+static int cs_search_free(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+	if (lua_gettop(L) == 1)
+	{
+		searchResult *oldResults = (searchResult *)lua_touserdata(L,1);
+
+		if(validateSearchResult(oldResults) == 0)
+		{
+			outString(hPipe," [ERR] argument 1 was not a valid search result\n");
+			return 0;
+		}
+
+		oldResults->signature = 0;
+		free(oldResults->arraySolutions);
+		free(oldResults);
+		return 0;
+	}
+	else
+	{
+		outString(hPipe," [ERR] search_free(results) takes one argument\n");
+		return 0;
+	}
+	return 0;
+}
+
 // FOR NOW: DWORDS ONLY.
 static int cs_search_filter(lua_State *L)
 {
@@ -620,6 +648,13 @@ static int cs_search_filter(lua_State *L)
 	{
 		searchResult *oldResults = (searchResult *)lua_touserdata(L,1);
 		DWORD newFilter = (DWORD )lua_tonumber(L,2);
+
+		if(validateSearchResult(oldResults) == 0)
+		{
+			outString(hPipe," [ERR] argument 1 was not a valid search result\n");
+			return 0;
+		}
+
 		int newResults = search_filter_dword(oldResults, newFilter);
 		lua_pushnumber(L,newResults);
 		return 1;
@@ -707,6 +742,7 @@ static int cs_search_dword(lua_State *L)
 		free(solutions);
 	}
 
+	results->signature = SEARCH_SIG;
 	sprintf(mbuf," [NFO] %d instances found, %d pages skipped\n",totalSolutionCount, skippedPages);
 	outString(hPipe,mbuf);
 	
