@@ -637,7 +637,6 @@ static int cs_search_free(lua_State *L)
 	return 0;
 }
 
-// FOR NOW: DWORDS ONLY.
 static int cs_search_filter(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
@@ -647,27 +646,49 @@ static int cs_search_filter(lua_State *L)
 	if (lua_gettop(L) == 2)
 	{
 		searchResult *oldResults = (searchResult *)lua_touserdata(L,1);
-		DWORD newFilter = (DWORD )lua_tonumber(L,2);
-
 		if(validateSearchResult(oldResults) == 0)
 		{
 			outString(hPipe," [ERR] argument 1 was not a valid search result\n");
 			return 0;
 		}
 
-		int newResults = search_filter_dword(oldResults, newFilter);
+		int t = oldResults->searchType;
+		int newResults = 0;
+
+		DWORD newFilter_dw;
+		WORD newFilter_w;
+		BYTE newFilter_b;
+		switch(t)
+		{
+			case SEARCH_DWORD:
+				newFilter_dw = (DWORD )lua_tonumber(L,2);
+				newResults = search_filter_dword(oldResults, newFilter_dw);
+				break;
+			case SEARCH_WORD:
+				newFilter_w = (WORD )lua_tonumber(L,2);
+				newResults = search_filter_word(oldResults, newFilter_w);
+				break;
+			case SEARCH_BYTE:
+				newFilter_b = (BYTE )lua_tonumber(L,2);
+				newResults = search_filter_byte(oldResults, newFilter_b);
+				break;
+			default:
+				outString(hPipe," [ERR] search_filter(results,new_value) tried to filter a search result with an invalid searchtype\n");
+				return 0;
+				break;
+		}
 		lua_pushnumber(L,newResults);
 		return 1;
 	}
 	else
 	{
-		outString(hPipe," [ERR] search_filter(results,new_dword) requires 2 arguments\n");
+		outString(hPipe," [ERR] search_filter(results,new_value) requires 2 arguments\n");
 		return 0;
 	}
 	return 0;
 }
 
-static int cs_search_dword(lua_State *L)
+static int cs_search_new(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
 	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
@@ -679,7 +700,9 @@ static int cs_search_dword(lua_State *L)
 
 	char mbuf[1024];
 
-	DWORD valueToSearch = 0;
+	DWORD valueToSearch_dword = 0;
+	WORD valueToSearch_word = 0;
+	BYTE valueToSearch_byte = 0;
 	UINT_PTR start = 0;
 	#if ARCHI == 64
 		UINT_PTR hardMax = 0x7FFFFFFFFFFFFFFF;
@@ -687,28 +710,44 @@ static int cs_search_dword(lua_State *L)
 		UINT_PTR hardMax = 0x7FFFFFFF;
 	#endif
 
-	if (lua_gettop(L) == 1)
+	int searchType = 0;
+
+	if (lua_gettop(L) >= 2 && lua_gettop(L) <= 4)
 	{
-		valueToSearch = (DWORD )lua_tonumber(L,1);
+		searchType = lua_tonumber(L,1);
+		switch(searchType)
+		{
+			case SEARCH_DWORD:
+				valueToSearch_dword = (DWORD )lua_tonumber(L,2);
+				break;
+			case SEARCH_WORD:
+				valueToSearch_word = (WORD )lua_tonumber(L,2);
+				break;
+			case SEARCH_BYTE:
+				valueToSearch_byte = (BYTE )lua_tonumber(L,2);
+				break;
+			default:
+				outString(hPipe," [ERR] search_dword(searchtype,searchdata,startAddress,endAddress) requires SEARCH_DWORD, SEARCH_WORD, SEARCH_BYTE or SEARCH_QWORD as first arg\n");
+				return 0;
+		}
 	}
-	else if (lua_gettop(L) == 2)
+
+	if (lua_gettop(L) == 3)
 	{
-		valueToSearch = (DWORD )lua_tonumber(L,1);
 		start = (UINT_PTR )lua_tonumber(L,2);
 	}
-	else if (lua_gettop(L) == 3)
+	else if (lua_gettop(L) == 4)
 	{
-		valueToSearch = (DWORD )lua_tonumber(L,1);
 		start = (UINT_PTR )lua_tonumber(L,2);
 		hardMax = (UINT_PTR )lua_tonumber(L,3);
 	}
 	else
 	{
-		outString(hPipe," [ERR] search_dword(dword,startAddress,endAddress) requires at least 1 argument\n");
+		outString(hPipe," [ERR] search_dword(searchtype,searchdata,startAddress,endAddress) requires 2 arguments\n");
 		return 0;
 	}
 
-	sprintf(mbuf," [NFO] scanning from 0x%0x to 0x%0x (pagesize=%d) for dword value 0x%0x\n", 0, hardMax, si.dwPageSize, valueToSearch);	
+	sprintf(mbuf," [NFO] scanning from 0x%0x to 0x%0x (pagesize=%d)\n", 0, hardMax, si.dwPageSize);	
 	outString(hPipe,mbuf);
 
 	// allow for 1024 instances at once.
@@ -725,7 +764,24 @@ static int cs_search_dword(lua_State *L)
 		int solutionCount = 0;
 		UINT_PTR *solutions = (UINT_PTR *)malloc(sizeof(UINT_PTR) * (si.dwPageSize / 4));
 
-		if( page_search_dword(readStart,si.dwPageSize,&solutionCount,solutions,valueToSearch) )
+		int retVal = 0;
+		switch(searchType)
+		{
+			case SEARCH_DWORD:
+				retVal = page_search_dword(readStart,si.dwPageSize,&solutionCount,solutions,valueToSearch_dword);
+				break;
+			case SEARCH_WORD:
+				retVal = page_search_word(readStart,si.dwPageSize,&solutionCount,solutions,valueToSearch_word);
+				break;
+			case SEARCH_BYTE:
+				retVal = page_search_byte(readStart,si.dwPageSize,&solutionCount,solutions,valueToSearch_byte);
+				break;
+			default:
+				outString(hPipe," [ERR] search: invalid search type\n");
+				return 0;
+		}
+
+		if( retVal )
 		{
 			if(solutionCount != 0)
 			{
@@ -743,6 +799,7 @@ static int cs_search_dword(lua_State *L)
 	}
 
 	results->signature = SEARCH_SIG;
+	results->searchType = searchType;
 	sprintf(mbuf," [NFO] %d instances found, %d pages skipped\n",totalSolutionCount, skippedPages);
 	outString(hPipe,mbuf);
 	
@@ -875,7 +932,8 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	lua_register(luaState,"asm_free",cs_asm_free);
 	lua_register(luaState,"resolve",cs_resolve);
 	lua_register(luaState,"search_filter",cs_search_filter);
-	lua_register(luaState,"search_dword",cs_search_dword);
+	lua_register(luaState,"search_new",cs_search_new);
+	lua_register(luaState,"search_free",cs_search_free);
 
 	// mprotect constants
 	luaL_dostring(luaState,"PAGE_EXECUTE = 0x10");
@@ -891,6 +949,9 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	luaL_dostring(luaState,"PAGE_GUARD = 0x100");
 	luaL_dostring(luaState,"PAGE_NOCACHE = 0x200");
 	luaL_dostring(luaState,"PAGE_WRITECOMBINE = 0x400");
+	luaL_dostring(luaState,"SEARCH_DWORD = 4");
+	luaL_dostring(luaState,"SEARCH_WORD = 2");
+	luaL_dostring(luaState,"SEARCH_BYTE = 1");
 
 	int exitToLoop = 0;
 
@@ -1425,6 +1486,22 @@ void outString(HANDLE hPipe, char *thisMsg)
 	return;
 }
 
+int validate_asm(asmBuffer *a)
+{
+	__try
+	{
+		if(a->signature == ASM_SIG)
+		{
+			return 1;
+		}
+	}
+	__except(true)
+	{
+		return 0;
+	}
+	return 0;
+}
+
 static int cs_asm_new(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
@@ -1454,6 +1531,7 @@ static int cs_asm_new(lua_State *L)
 	asmBuffer *d = (asmBuffer *)malloc(sizeof(asmBuffer));
 	memset(d,0,sizeof(asmBuffer));
 
+	d->signature = ASM_SIG;
 	d->writeHead = startAddress;
 	d->architecture = architecture;
 	d->lineCount = 0;
@@ -1475,6 +1553,11 @@ static int cs_asm_add(lua_State *L)
 	if (lua_gettop(L) == 2)
 	{
 		a = (asmBuffer *)lua_touserdata(L,1);
+		if(validate_asm(a) == 0)
+		{
+			outString(hPipe," [ERR] asm_add(asmobj,assembly_data) / asmobj was not a valid assembly buffer\n");
+			return 0;
+		}
 		newLine = (char *)lua_tostring(L,2);
 	}
 	else
@@ -1500,6 +1583,11 @@ static int cs_asm_free(lua_State *L)
 	if (lua_gettop(L) == 1)
 	{
 		a = (asmBuffer *)lua_touserdata(L,1);
+		if(validate_asm(a) == 0)
+		{
+			outString(hPipe," [ERR] asm_free(asmobj) / asmobj was not a valid object\n");
+			return 0;
+		}
 	}
 	else
 	{
@@ -1508,6 +1596,8 @@ static int cs_asm_free(lua_State *L)
 	}
 
 	printf("");
+
+	a->signature = 0;
 
 	int i = 0;
 	for( ; i < a->lineCount; a++ )
@@ -1520,6 +1610,7 @@ static int cs_asm_free(lua_State *L)
 	}
 
 	a->lineCount = 0;
+	free(a);
 
 	return 0;
 }
@@ -1535,6 +1626,11 @@ static int cs_asm_commit(lua_State *L)
 	if (lua_gettop(L) == 1)
 	{
 		a = (asmBuffer *)lua_touserdata(L,1);
+		if(validate_asm(a) == 0)
+		{
+			outString(hPipe," [ERR] asm_commit(asmobj) / asmobj was not a valid asm buffer\n");
+			return 0;
+		}
 	}
 	else
 	{

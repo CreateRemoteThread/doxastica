@@ -39,10 +39,13 @@ void cs_error(lua_State *L, HANDLE hPipe);
 	asm_free(asmobj)
 */
 
+#define ASM_SIG 0x61616261
+
 // simplicity's sake
 // we use 1024 lines at once
 struct asmBuffer
 {
+	DWORD signature;
 	UINT_PTR writeHead;           // where asm_write writes to
 	int lineCount;                // how many lines of assembly do we have
 	int architecture;             // 32 or 64 (for glorious cross-architecture assembler)
@@ -55,3 +58,4 @@ static int cs_asm_add(lua_State *L);
 static int cs_asm_commit(lua_State *L);
 static int cs_asm_free(lua_State *L);
 static int cs_assemble(lua_State *L);
+int validate_asm(asmBuffer *a);

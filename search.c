@@ -28,6 +28,58 @@ int page_search_dword(UINT_PTR d,int pageSize,int *solutionCount, UINT_PTR *solu
 	return 1;
 }
 
+int page_search_word(UINT_PTR d,int pageSize,int *solutionCount, UINT_PTR *solutions, WORD valueToSearch)
+{
+	WORD *readHead = (WORD *)d;
+	int i = 0;
+	int max = pageSize / sizeof(WORD);
+	for( ; i < max; i++)
+	{
+		__try
+		{
+			// needs to be inside the try statement :)
+			// herpaderp
+			if(readHead[i] == valueToSearch)
+			{
+				solutions[solutionCount[0]] = (UINT_PTR )&(readHead[i]);
+				solutionCount[0] += 1;
+			}
+		}
+		__except(true)
+		{
+			return 0;
+		}
+	}
+
+	return 1;
+}
+
+int page_search_byte(UINT_PTR d,int pageSize,int *solutionCount, UINT_PTR *solutions, BYTE valueToSearch)
+{
+	BYTE *readHead = (BYTE *)d;
+	int i = 0;
+	int max = pageSize / sizeof(BYTE);
+	for( ; i < max; i++)
+	{
+		__try
+		{
+			// needs to be inside the try statement :)
+			// herpaderp
+			if(readHead[i] == valueToSearch)
+			{
+				solutions[solutionCount[0]] = (UINT_PTR )&(readHead[i]);
+				solutionCount[0] += 1;
+			}
+		}
+		__except(true)
+		{
+			return 0;
+		}
+	}
+
+	return 1;
+}
+
 // a = search_dword(X,Y,Z)
 // search_filter(a,123123)
 // etc
@@ -44,6 +96,62 @@ int search_filter_dword(searchResult *m, DWORD newvalue)
 		__try
 		{
 			if( *((DWORD *)(m->arraySolutions[i])) == newvalue)
+			{
+				newSolutions[remainingSolutions] = m->arraySolutions[i];
+				remainingSolutions += 1;
+			}
+		}
+		__except(true)
+		{
+			// nothing happens here.
+		}
+	}
+
+	free(m->arraySolutions);
+	m->numSolutions = remainingSolutions;
+	m->arraySolutions = newSolutions;
+	return remainingSolutions;
+}
+
+int search_filter_word(searchResult *m, WORD newvalue)
+{
+	int i = 0;
+	int remainingSolutions = 0;
+	int max = m->numSolutions;
+	UINT_PTR *newSolutions = (UINT_PTR *)malloc(sizeof(UINT_PTR) * max);
+	for( ; i < max ; i++)
+	{
+		__try
+		{
+			if( *((WORD *)(m->arraySolutions[i])) == newvalue)
+			{
+				newSolutions[remainingSolutions] = m->arraySolutions[i];
+				remainingSolutions += 1;
+			}
+		}
+		__except(true)
+		{
+			// nothing happens here.
+		}
+	}
+
+	free(m->arraySolutions);
+	m->numSolutions = remainingSolutions;
+	m->arraySolutions = newSolutions;
+	return remainingSolutions;
+}
+
+int search_filter_byte(searchResult *m, BYTE newvalue)
+{
+	int i = 0;
+	int remainingSolutions = 0;
+	int max = m->numSolutions;
+	UINT_PTR *newSolutions = (UINT_PTR *)malloc(sizeof(UINT_PTR) * max);
+	for( ; i < max ; i++)
+	{
+		__try
+		{
+			if( *((BYTE *)(m->arraySolutions[i])) == newvalue)
 			{
 				newSolutions[remainingSolutions] = m->arraySolutions[i];
 				remainingSolutions += 1;
