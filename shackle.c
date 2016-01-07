@@ -1362,6 +1362,7 @@ static int cs_db(lua_State *L)
 			value = addrTo[0];
 			char mbuf[1024];
 			sprintf(mbuf," [0x%0x] %02x\n",(UINT_PTR )addrTo, (unsigned char )value);
+			outString(hPipe,mbuf);
 			lua_pushnumber(L,value);
 			return 1;
 		}
@@ -1393,6 +1394,7 @@ static int cs_dw(lua_State *L)
 			value = addrTo[0];
 			char mbuf[1024];
 			sprintf(mbuf," [0x%0x] %04x\n",(UINT_PTR )addrTo, value);
+			outString(hPipe,mbuf);
 			lua_pushnumber(L,value);
 			return 1;
 		}
@@ -1424,6 +1426,7 @@ static int cs_dd(lua_State *L)
 			value = addrTo[0];
 			char mbuf[1024];
 			sprintf(mbuf," [0x%0x] %08x\n",(UINT_PTR )addrTo, value);
+			outString(hPipe,mbuf);
 			lua_pushnumber(L,value);
 			return 1;
 		}
