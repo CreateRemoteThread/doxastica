@@ -1,8 +1,8 @@
 doxastica
 =========
 
-doxastica is a generic api hooking framework, designed to make interacting
-with game processes easier. it contains two primary components:
+doxastica is an injectable lua interpreter, designed to make interacting
+with game processes easier. it contains two^H^H^Hthree primary components:
 
 - a dll loader, which allows us to inject any dll into another process' memory
 space
@@ -13,6 +13,18 @@ with the "peek" client.
 
 this project does not use any debug functionality - shackle runs as it's own
 collection of threads within the host process.
+
+## what's the difference between this and cheatengine/tsearch
+
+- this doesn't rely on debugger functionality at all, so anti-debug checks 
+have nothing to catch: this means a lower chance for you to get banned
+
+- it's hard for games to ban you on the grounds of a loaded dll. lots of things
+load dlls (but things like battleeye will pick this up - but this is a policy
+thing).
+
+- compared to a debugger, you're inside a process' memory. typically, this means
+you'll have first dibs on things. 
 
 ## quickstart: hacking unreal tournament 99
 
@@ -54,33 +66,88 @@ and check our work with "hexdump":
 
 return to our game, your health should be much higher :)
 
-## dragons below etc
+## lua commands listing
 
-### building
+the following additional lua functions are supported as part of doxastica. many
+of these were inspired by functionality in cheat engine:
 
-```
-build shackle32
-build shackle64
-build ldr32
-build ldr64
-build peek
-````
+- void hexdump(address,{size}):
+  generates a number of 
 
-### injecting into stuff
+- void memcpy(addrto,addrfrom,{size}):
+  like c, writes a block of memory at addrto, from addrfrom. if addrfrom is an
+  address, this requires the "size" parameter. if it's a string (i.e. a lua binary
+  string", size is ignored).
 
-to inject "shackle64.dll" into calc.exe on a 64-bit system: `ldr64 -fastinject calc.exe -dll shackle64.dll`
+- void memset(addrto,char,size):
+  fills a block of memory with a given byte value, like it's c equivalent
 
-to inject "shackle32.dll" into a new 32-bit test.exe: `ldr32 -inject test.exe -dll shackle32.dll`
+- int malloc(size):
+  allocates a new block of memory. returns an integer pointing to the newly
+  allocated memory buffer
 
-same as above, but hold the process in a EB FE loop first: `ldr32 -inject test.exe -dll shackle32.dll -wait`
+- int mprotect(addr,size,mprotect_const):
+  proxies a call to VirtualProtect, setting the address of one or more memory
+  pages. mprotect_const uses the windows memory protection constants. returns
+  the old memory protection value
 
-ldr can inject anything, but it's up to you to make sure the dll you're injecting is the correct architecture.
-shackle comes with a pre-built 'hook' function based off beaengine - debug via OutputDebugString.
+- string memread(addr,size):
+  reads a block of memory, returns it as a string
 
-this is super WIP, doesn't yet validate architecture - shit will break if you inject a 64-bit process into a 32-bit process
+- void disasm(addr,lines) / disassemble(addr,lines):
+  prints out a disassembly starting at eip, going for lines number of instructions
 
-glhf lol
+### assembler
 
+doxastica uses the xedparse assembler library to provide both 32-bit and 64-bit
+assembly. note that this is a SINGLE-LINE assembler, so does not support features
+such as labels. sorry =(
+
+- asmobject asm_new(address,architecture):
+  creates a new asembly buffer object, starting at "address". architecture, which
+  must be either 32 or 64, specifies whether we're assembling for x32 or x64. this
+  returns an "asm object", which can be used in further assembler-related calls.
+
+- void asm_add(asmobject,"ASSEMBLY"):
+  adds a single line of assembly to an asm object. note that this is NOT compiled
+  yet.
+
+- void asm_commit(asmobject):
+  commits changes to memory: assembles instructions in an asm buffer and writes
+  them to the process.
+
+- void asm_free(asmobject):
+  frees an asm object. future attempts to use the freed asm object should fail
+  a validation check.
+
+### memory search
+
+- searchobj search_new(search_type,value,start,end):
+  attempts to search a memory type
+
+- int search_filter(searchobj,newvalue):
+  attempts to filter a previously identified list of values to a newvalue. note
+  that this cannot change the TYPE of search: that is, if the search was created
+  looking for dwords, this will only look for dwords.
+
+- int search_fetch(searchobj,index):
+  this returns the n'th search result (as specified by "index") in a given search
+  object, such that 
+
+- void search_free(searchobj):
+  frees a search object. future attempts to use the freed search object should
+  fail a validation check.
+
+### fast edit
+
+- void eb(address, byte):
+  writes a single byte to the given address
+
+- void ew(address, word):
+  writes a single word to the given address
+
+- void ed(address, dword):
+  writes a single dword to the given address
 
 ## credits
 

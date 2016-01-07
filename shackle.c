@@ -764,7 +764,7 @@ static int cs_search_new(lua_State *L)
 				valueToSearch_byte = (BYTE )lua_tonumber(L,2);
 				break;
 			default:
-				outString(hPipe," [ERR] search_dword(searchtype,searchdata,startAddress,endAddress) requires SEARCH_DWORD, SEARCH_WORD, SEARCH_BYTE or SEARCH_QWORD as first arg\n");
+				outString(hPipe," [ERR] search_new(searchtype,searchdata,startAddress,endAddress) requires SEARCH_DWORD, SEARCH_WORD, SEARCH_BYTE or SEARCH_QWORD as first arg\n");
 				return 0;
 		}
 	}
@@ -778,9 +778,9 @@ static int cs_search_new(lua_State *L)
 		start = (UINT_PTR )lua_tonumber(L,2);
 		hardMax = (UINT_PTR )lua_tonumber(L,3);
 	}
-	else
+	else if(lua_gettop(L) != 2)
 	{
-		outString(hPipe," [ERR] search_dword(searchtype,searchdata,startAddress,endAddress) requires 2 arguments\n");
+		outString(hPipe," [ERR] search_new(searchtype,searchdata,startAddress,endAddress) requires 2 arguments\n");
 		return 0;
 	}
 
@@ -971,6 +971,7 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	lua_register(luaState,"search_filter",cs_search_filter);
 	lua_register(luaState,"search_new",cs_search_new);
 	lua_register(luaState,"search_free",cs_search_free);
+	lua_register(luaState,"search_fetch",cs_search_fetch);
 	lua_register(luaState,"eb",cs_eb);
 	lua_register(luaState,"ew",cs_ew);
 	lua_register(luaState,"ed",cs_ed);
