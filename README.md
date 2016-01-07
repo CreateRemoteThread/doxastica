@@ -64,7 +64,8 @@ and check our work with "hexdump":
 
 ![patching player hp](/README_FILES/hexdump_stage2.png)
 
-return to our game, your health should be much higher:
+return to our game, your health should be much higher (this should be 500 but
+i'm not too great at this game so it's less):
 
 ![increased hp in unreal tournament](/README_FILES/ingame_morehp.png)
 

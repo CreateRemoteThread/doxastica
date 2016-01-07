@@ -2054,7 +2054,9 @@ static int cs_bind(lua_State *L)
     char *hotkey = (char *)lua_tostring(L,1);
     char *commandToRun = (char *)lua_tostring(L,2);
 
-	globalHotkeyArray[hotkey[0]] = strdup(commandToRun);
+	int vkeycode = VkKeyScanEx(hotkey[0],GetKeyboardLayout(0));
+
+	globalHotkeyArray[vkeycode] = strdup(commandToRun);
 
     // RegisterHotKey (NULL, (int )hotkey[0], MOD_NOREPEAT, (int )hotkey[0]);
 
@@ -2077,8 +2079,10 @@ static int cs_unbind(lua_State *L)
 
     char *hotkey = (char *)lua_tostring(L,1);
 
-	free(globalHotkeyArray[hotkey[0]]);
-	globalHotkeyArray[hotkey[0]] = NULL;
+	int vkeycode = VkKeyScanEx(hotkey[0],GetKeyboardLayout(0));
+
+	free(globalHotkeyArray[vkeycode]);
+	globalHotkeyArray[vkeycode] = NULL;
 
     return 0;
 }
