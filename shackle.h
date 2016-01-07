@@ -59,3 +59,7 @@ static int cs_asm_commit(lua_State *L);
 static int cs_asm_free(lua_State *L);
 static int cs_assemble(lua_State *L);
 int validate_asm(asmBuffer *a);
+
+static int cs_eb(lua_State *L);
+static int cs_ew(lua_State *L);
+static int cs_ed(lua_State *L);

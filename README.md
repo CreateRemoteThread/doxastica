@@ -6,16 +6,54 @@ with game processes easier. it contains two primary components:
 
 - a dll loader, which allows us to inject any dll into another process' memory
 space
-- "shackle.dll", which acts like a mini-debugger which you can use almost like
-windbg inside memory. this opens up an ipc server at \\.\pipe\shackle-%d, where
-%d is the host process id. this server accepts ipc connections, and treats input
-as lua to be interpreted by an embedded lua 5p3 engine
-- "peek", which acts as an ipc client (to communicate with the shackle library)
+- "shackle.dll", which is a lua interpreter to be injected into a target
+process. upon loading, this dll opens up an ipc server, which you can talk to
+with the "peek" client.
+- "peek", basically an ipc telnet
 
 this project does not use any debug functionality - shackle runs as it's own
 collection of threads within the host process.
 
-## TODO WRITE SOME DOCS
+## quickstart: hacking unreal tournament 99
+
+the goal of our quickstart tutorial will be the hack the unral tournament goty
+edition from steam (http://store.steampowered.com/app/13240/). we will try to
+edit the game's memory so that a player can have 200 health.
+
+firstly, start the game, and then run the following command:
+
+    ldr32 -fastinject UnrealTournament.exe -dll shackle32.dll
+
+this should provide an output like the following:
+
+![ldr32 command output](/README_FILES/Untitled.png)
+
+then, within the game, start a match, and begin a tournament. lose at least one
+hitpoint and pause. now, back to our desktop. notice the end of the "ldr32" 
+command output, see how it specifies a command to use to connect to the game
+process?
+
+use this command to connect to the ipc server, and create a new search object
+via the following:
+
+    > a = search_new(SEARCH_DWORD, 93)
+
+where 93 is the value of the current player's health. this should return a large
+number of results, we need to filter the possible results. return to the game,
+and play until your health changes, and pause again. now, use the following
+command to check which of the previously identified values have the new value:
+
+    > search_filter(a,87)
+
+this should return <5 results. repeat this process until you have one result.
+copy this result down.
+
+now, use the "ed" command to edit the DWORD at this location to a higher value,
+and check our work with "hexdump":
+
+![patching player hp](/README_FILES/hexdump_stage2.png)
+
+return to our game, your health should be much higher :)
 
 ## dragons below etc
 

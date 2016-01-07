@@ -609,6 +609,42 @@ static int test_lua(lua_State *L)
 	return 0;
 }
 
+static int cs_search_fetch(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+	if (lua_gettop(L) == 2)
+	{
+		searchResult *oldResults = (searchResult *)lua_touserdata(L,1);
+
+		if(validateSearchResult(oldResults) == 0)
+		{
+			outString(hPipe," [ERR] argument 1 was not a valid search result\n");
+			return 0;
+		}
+		int searchIndex = lua_tonumber(L,2);
+		
+		if(searchIndex >= oldResults->numSolutions)
+		{
+			char mbuf[1024];
+			sprintf(mbuf," [ERR] index too big, this search result set only has %d solutions\n",oldResults->numSolutions);
+			outString(hPipe,mbuf);
+			outString(hPipe," [NFO] this command indexes from 0, search_fetch(result,0) fetches the first result");
+			return 0;
+		}
+
+		lua_pushnumber(L,oldResults->arraySolutions[searchIndex]);
+		return 1;
+	}
+	else
+	{
+		outString(hPipe," [ERR] search_fetch(results,index) needs 2 args\n");
+		return 0;
+	}
+	return 0;
+}
+
 static int cs_search_free(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
@@ -677,6 +713,7 @@ static int cs_search_filter(lua_State *L)
 				return 0;
 				break;
 		}
+		printShortResults(hPipe,oldResults);
 		lua_pushnumber(L,newResults);
 		return 1;
 	}
@@ -934,6 +971,9 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	lua_register(luaState,"search_filter",cs_search_filter);
 	lua_register(luaState,"search_new",cs_search_new);
 	lua_register(luaState,"search_free",cs_search_free);
+	lua_register(luaState,"eb",cs_eb);
+	lua_register(luaState,"ew",cs_ew);
+	lua_register(luaState,"ed",cs_ed);
 
 	// mprotect constants
 	luaL_dostring(luaState,"PAGE_EXECUTE = 0x10");
@@ -1238,6 +1278,88 @@ static int cs_memset(lua_State *L)
 	return 0;
 }
 
+// ed, eb, ew so we can be like windbg
+static int cs_ed(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+
+	if (lua_gettop(L) == 2)
+	{
+		DWORD *addrTo = (DWORD *)(UINT_PTR )lua_tonumber(L,1);
+		DWORD value = (DWORD )lua_tonumber(L,2);
+		__try{
+			addrTo[0] = value;
+		}
+		__except(true)
+		{
+			outString(hPipe," [ERR] cant write here, check memory protection\n");
+			return 0;
+		}
+	}
+	else
+	{
+		outString(hPipe," [ERR] ed(dest,value) requires 2 arguments\n");
+		return 0;
+	}
+	return 0;
+}
+
+static int cs_ew(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+
+	if (lua_gettop(L) == 2)
+	{
+		WORD *addrTo = (WORD *)(UINT_PTR )lua_tonumber(L,1);
+		WORD value = (WORD )lua_tonumber(L,2);
+		__try{
+			addrTo[0] = value;
+		}
+		__except(true)
+		{
+			outString(hPipe," [ERR] cant write here, check memory protection\n");
+			return 0;
+		}
+	}
+	else
+	{
+		outString(hPipe," [ERR] ew(dest,value) requires 2 arguments\n");
+		return 0;
+	}
+	return 0;
+}
+
+static int cs_eb(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+
+	if (lua_gettop(L) == 2)
+	{
+		BYTE *addrTo = (BYTE *)(UINT_PTR )lua_tonumber(L,1);
+		BYTE value = (BYTE )lua_tonumber(L,2);
+		__try{
+			addrTo[0] = value;
+		}
+		__except(true)
+		{
+			outString(hPipe," [ERR] cant write here, check memory protection\n");
+			return 0;
+		}
+	}
+	else
+	{
+		outString(hPipe," [ERR] eb(dest,value) requires 2 arguments\n");
+		return 0;
+	}
+	return 0;
+}
+
 static int cs_memcpy(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
@@ -1248,24 +1370,28 @@ static int cs_memcpy(lua_State *L)
 	char *addrFrom = NULL;
 	int size = 0;
 
-	if (lua_gettop(L) == 3)
+	if (lua_gettop(L) == 2 || lua_gettop(L) == 3)
 	{
 		addrTo = (char *)(UINT_PTR )lua_tonumber(L,1);
 		if(lua_isstring(L,2))
 		{
 			// data blob directly
-			addrFrom = (char *)lua_tostring(L,2);
+			addrFrom = (char *)lua_tolstring(L,2,(size_t *)&size);
 		}
-		else if(lua_isnumber(L,2))
+		else if(lua_isnumber(L,2) && lua_gettop(L) == 3)
 		{
-			// address
 			addrFrom = (char *)(UINT_PTR )lua_tonumber(L,2);
+			size = lua_tonumber(L,3);
 		}
-		size = lua_tonumber(L,3);
+		else
+		{
+			outString(hPipe," [ERR] memcpy(dest,source,size) requires 2 or 3 arguments\n");
+			return 0;
+		}
 	}
 	else
 	{
-		outString(hPipe," [ERR] memcpy(dest,source,size) requires 3 arguments\n");
+		outString(hPipe," [ERR] memcpy(dest,source,size) requires 2 or 3 arguments\n");
 		return 0;
 	}
 
@@ -1777,4 +1903,28 @@ static int cs_assemble(lua_State *L)
 	}
 	
 	return 0;
+}
+
+void printShortResults(HANDLE hPipe,searchResult *m)
+{
+	char mbuf[1024];
+	if(validateSearchResult(m) == 0)
+	{
+		return;
+	}
+	if(m->numSolutions <= 5)
+	{
+		int i = 0;
+		for( ; i < m->numSolutions; i++)
+		{
+			sprintf(mbuf," [%d.] 0x%0x\n",i,m->arraySolutions[i]);
+			outString(hPipe,mbuf);
+		}
+	}
+	else
+	{
+		sprintf(mbuf," %d results\n",m->numSolutions);
+		outString(hPipe,mbuf);
+	}
+	return;
 }

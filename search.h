@@ -26,3 +26,4 @@ int search_filter_word(searchResult *m, WORD newvalue);
 int search_filter_byte(searchResult *m, BYTE newvalue);
 searchResult *mergeResults(searchResult *m, int solutionCount, UINT_PTR *solns);
 int validateSearchResult(searchResult *m);
+void printShortResults(HANDLE hPipe,searchResult *m);
