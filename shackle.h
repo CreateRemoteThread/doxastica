@@ -63,3 +63,10 @@ int validate_asm(asmBuffer *a);
 static int cs_eb(lua_State *L);
 static int cs_ew(lua_State *L);
 static int cs_ed(lua_State *L);
+static int cs_db(lua_State *L);
+static int cs_dw(lua_State *L);
+static int cs_dd(lua_State *L);
+
+DWORD WINAPI hotkeyThread ( LPVOID lpParam ) ;
+static int cs_bind(lua_State *L);
+static int cs_unbind(lua_State *L);

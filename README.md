@@ -64,7 +64,16 @@ and check our work with "hexdump":
 
 ![patching player hp](/README_FILES/hexdump_stage2.png)
 
-return to our game, your health should be much higher :)
+return to our game, your health should be much higher:
+
+![increased hp in unreal tournament](/README_FILES/ingame_morehp.png)
+
+this isn't enough. let's bind an unused hotkey so we can build our health with
+our 
+
+![bind hotkey](/README_FILES/new_hotkey.png)
+
+now, by pressing "p" for half a second, your health will be restored to 500 :)
 
 ## lua commands listing
 
@@ -140,14 +149,11 @@ such as labels. sorry =(
 
 ### fast edit
 
-- void eb(address, byte):
-  writes a single byte to the given address
+- void e{b/w/d}(address, {byte/word/dword}):
+  writes a single byte/word/dword to the given address
 
-- void ew(address, word):
-  writes a single word to the given address
-
-- void ed(address, dword):
-  writes a single dword to the given address
+- void d{b/w/d}(address):
+  display a single {byte/word/dword} at the given address
 
 ## credits
 

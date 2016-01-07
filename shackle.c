@@ -43,6 +43,9 @@ _MessageBoxA oldMessageBox = NULL;
 _send oldSend = NULL;
 _send oldRecv = NULL;
 
+char *globalHotkeyArray[256];
+int globalSleepTime = 500;
+
 /*
 // okay, what's the function prelude of newmessagebox?
 u $ip
@@ -336,6 +339,7 @@ void hook(UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress)
 
 
 DWORD threadId = 0;
+DWORD threadId_hotkeys = 0;
 
 BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
 {
@@ -952,6 +956,12 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	lua_State *luaState = NULL;
 
 	luaState = luaL_newstate();
+
+	// different threads can't define different hotkeys on a host system
+	// want to race-proof this, lower priority
+	memset(globalHotkeyArray,0,sizeof( char * ) * 256);
+	CreateThread(NULL,0,(LPTHREAD_START_ROUTINE )hotkeyThread,luaState,0,&threadId_hotkeys);
+
 	luaL_openlibs(luaState);
 	// lua_register(luaState,"test_lua",test_lua);
 	lua_register(luaState,"print",cs_print);
@@ -975,6 +985,11 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	lua_register(luaState,"eb",cs_eb);
 	lua_register(luaState,"ew",cs_ew);
 	lua_register(luaState,"ed",cs_ed);
+	lua_register(luaState,"db",cs_db);
+	lua_register(luaState,"dw",cs_dw);
+	lua_register(luaState,"dd",cs_dd);
+	lua_register(luaState,"bind",cs_bind);
+	lua_register(luaState,"unbind",cs_unbind);
 
 	// mprotect constants
 	luaL_dostring(luaState,"PAGE_EXECUTE = 0x10");
@@ -1013,7 +1028,6 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 
 	sprintf(mbuf," - __hpipe = 0x%x | __hProcess = 0x%x | __pid = %d -\n",hPipe,hProcess,pid);
 	outString(hPipe,mbuf);
-
 
 	// collect process modules for resolver
 	HMODULE hMods[1024];
@@ -1329,6 +1343,99 @@ static int cs_ew(lua_State *L)
 	else
 	{
 		outString(hPipe," [ERR] ew(dest,value) requires 2 arguments\n");
+		return 0;
+	}
+	return 0;
+}
+
+static int cs_db(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+
+	if (lua_gettop(L) == 1)
+	{
+		BYTE *addrTo = (BYTE *)(UINT_PTR )lua_tonumber(L,1);
+		BYTE value = 0;
+		__try{
+			value = addrTo[0];
+			char mbuf[1024];
+			sprintf(mbuf," [0x%0x] %02x\n",(UINT_PTR )addrTo, (unsigned char )value);
+			lua_pushnumber(L,value);
+			return 1;
+		}
+		__except(true)
+		{
+			outString(hPipe," [ERR] cant read here, check memory protection\n");
+			return 0;
+		}
+	}
+	else
+	{
+		outString(hPipe," [ERR] db(dest) requires 1 argument\n");
+		return 0;
+	}
+	return 0;
+}
+
+static int cs_dw(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+
+	if (lua_gettop(L) == 1)
+	{
+		WORD *addrTo = (WORD *)(UINT_PTR )lua_tonumber(L,1);
+		WORD value = 0;
+		__try{
+			value = addrTo[0];
+			char mbuf[1024];
+			sprintf(mbuf," [0x%0x] %04x\n",(UINT_PTR )addrTo, value);
+			lua_pushnumber(L,value);
+			return 1;
+		}
+		__except(true)
+		{
+			outString(hPipe," [ERR] cant read here, check memory protection\n");
+			return 0;
+		}
+	}
+	else
+	{
+		outString(hPipe," [ERR] dw(dest) requires 1 argument\n");
+		return 0;
+	}
+	return 0;
+}
+
+static int cs_dd(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+
+	if (lua_gettop(L) == 1)
+	{
+		DWORD *addrTo = (DWORD *)(UINT_PTR )lua_tonumber(L,1);
+		DWORD value = 0;
+		__try{
+			value = addrTo[0];
+			char mbuf[1024];
+			sprintf(mbuf," [0x%0x] %08x\n",(UINT_PTR )addrTo, value);
+			lua_pushnumber(L,value);
+			return 1;
+		}
+		__except(true)
+		{
+			outString(hPipe," [ERR] cant read here, check memory protection\n");
+			return 0;
+		}
+	}
+	else
+	{
+		outString(hPipe," [ERR] dd(dest) requires 1 argument\n");
 		return 0;
 	}
 	return 0;
@@ -1928,4 +2035,90 @@ void printShortResults(HANDLE hPipe,searchResult *m)
 		outString(hPipe,mbuf);
 	}
 	return;
+}
+
+static int cs_bind(lua_State *L)
+{
+    lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+    char mbuf[1024];
+
+    if(lua_gettop(L) != 2)
+    {
+        sprintf(mbuf," [ERR] bind(key,cmd) requires 2 args\n");
+        outString(hPipe,mbuf);
+        return 0;
+    }
+
+    char *hotkey = (char *)lua_tostring(L,1);
+    char *commandToRun = (char *)lua_tostring(L,2);
+
+	globalHotkeyArray[hotkey[0]] = strdup(commandToRun);
+
+    // RegisterHotKey (NULL, (int )hotkey[0], MOD_NOREPEAT, (int )hotkey[0]);
+
+    return 0;
+}
+
+static int cs_unbind(lua_State *L)
+{
+    lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+    char mbuf[1024];
+
+    if(lua_gettop(L) != 1)
+    {
+        sprintf(mbuf," [ERR] unbind(key) requires 1 arg\n");
+        outString(hPipe,mbuf);
+        return 0;
+    }
+
+    char *hotkey = (char *)lua_tostring(L,1);
+
+	free(globalHotkeyArray[hotkey[0]]);
+	globalHotkeyArray[hotkey[0]] = NULL;
+
+    return 0;
+}
+
+#define KEY_UP(vk_code) ((GetAsyncKeyState(vk_code) & 0x8000) ? 1 : 0)
+#define KEY_DOWN(vk_code) ((GetAsyncKeyState(vk_code) & 0x8000) ? 0 : 1)
+
+DWORD WINAPI hotkeyThread(LPVOID param)
+{
+	lua_State *L = (lua_State *)param;
+
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+	int i = 0;
+
+	BYTE keyboardState[256];
+	while(true)
+	{
+		Sleep(globalSleepTime);
+		for ( i = 0; i < 256 ; i++)
+		{
+			if(globalHotkeyArray[i] != 0)
+			{
+				if(KEY_DOWN(i))
+				{
+					char *pchRequest = globalHotkeyArray[i];
+					if( luaL_loadbuffer(L,pchRequest,strlen(pchRequest),"Timer") == 0 )
+					{
+						if( lua_pcall(L,0,0,0) )
+						{
+							cs_error(L,hPipe);
+						}
+					}
+					else
+					{
+						cs_error(L,hPipe);
+					}
+				}
+			}
+		}
+	}
 }
