@@ -28,10 +28,9 @@ this should provide an output like the following:
 
 ![ldr32 command output](/README_FILES/Untitled.png)
 
-then, within the game, start a match, and begin a tournament. lose at least one
-hitpoint and pause. now, back to our desktop. notice the end of the "ldr32" 
-command output, see how it specifies a command to use to connect to the game
-process?
+then, within the game, start a match. lose at least one hitpoint and pause. 
+now, back to our desktop. notice the end of the "ldr32" command output, see 
+how it specifies a command to use to connect to the game process?
 
 use this command to connect to the ipc server, and create a new search object
 via the following:
