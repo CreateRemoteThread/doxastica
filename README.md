@@ -4,12 +4,12 @@ doxastica
 doxastica is an injectable lua interpreter, designed to make interacting
 with game processes easier. it contains two^H^H^Hthree primary components:
 
-- a dll loader, which allows us to inject any dll into another process' memory
-space
+- "ldr32"/"ldr64", a dll loader, which allows us to inject any dll into 
+another process' memory space
 - "shackle.dll", which is a lua interpreter to be injected into a target
 process. upon loading, this dll opens up an ipc server, which you can talk to
 with the "peek" client.
-- "peek", basically an ipc telnet
+- "peek", basically an ipc telnet. invoke it with 
 
 this project does not use any debug functionality - shackle runs as it's own
 collection of threads within the host process.
@@ -17,14 +17,14 @@ collection of threads within the host process.
 ## what's the difference between this and cheatengine/tsearch
 
 - this doesn't rely on debugger functionality at all, so anti-debug checks 
-have nothing to catch: this means a lower chance for you to get banned
+have nothing to catch: this means a lower chance for you to get banned.
 
 - it's hard for games to ban you on the grounds of a loaded dll. lots of things
 load dlls (but things like battleeye will pick this up - but this is a policy
 thing).
 
-- compared to a debugger, you're inside a process' memory. typically, this means
-you'll have first dibs on things. 
+- compared to a debugger, you're inside a process' memory. this means you are
+fast as shit for certain operations (but crippled in others).
 
 ## quickstart: hacking unreal tournament 99
 

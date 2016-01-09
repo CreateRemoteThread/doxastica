@@ -70,3 +70,12 @@ static int cs_dd(lua_State *L);
 DWORD WINAPI hotkeyThread ( LPVOID lpParam ) ;
 static int cs_bind(lua_State *L);
 static int cs_unbind(lua_State *L);
+
+char *shortName(char *fullName);
+
+static int cs_who_writes_to(lua_State *L);
+static int cs_finish_who_writes_to(lua_State *L);
+
+LONG CALLBACK veh(EXCEPTION_POINTERS *ExceptionInfo);
+void protectLocation(UINT_PTR start, int size, HANDLE hPipe);
+void unprotectLocation();

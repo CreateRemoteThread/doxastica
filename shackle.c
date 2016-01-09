@@ -7,6 +7,7 @@
 #include <lauxlib.h>
 #include <lualib.h>
 #include <signal.h>
+#include <imagehlp.h>
 #include <ctype.h>
 #include "shackle.h"
 #include "search.h"
@@ -141,7 +142,7 @@ UINT_PTR searchForShortCave(UINT_PTR addressFrom,int minLength)
 		OutputDebugString(mbuf);
 		if ((unsigned char )p[i] == (unsigned char )'\xC3')
 		{
-			// OutputDebugString("\n ---- FOUND ---- \n");
+			
 			foundAddress = (UINT_PTR )(p + i + 1);
 			for(n = 1;n < minLength;n++)
 			{
@@ -848,6 +849,7 @@ static int cs_search_new(lua_State *L)
 	return 1;
 }
 
+// try to roll with 
 static int cs_resolve(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
@@ -990,6 +992,8 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	lua_register(luaState,"dd",cs_dd);
 	lua_register(luaState,"bind",cs_bind);
 	lua_register(luaState,"unbind",cs_unbind);
+	lua_register(luaState,"who_writes_to",cs_who_writes_to);
+	lua_register(luaState,"finish_who_writes_to",cs_finish_who_writes_to);
 
 	// mprotect constants
 	luaL_dostring(luaState,"PAGE_EXECUTE = 0x10");
@@ -1044,12 +1048,12 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 			{
 				if ( GetModuleInformation(hProcess,hMods[i],&modInfo,sizeof(modInfo)) )
 				{
-					sprintf(mbuf," + %s (0x%08x) (EP:0x%0x)\n",szModName,hMods[i],modInfo.EntryPoint);
+					sprintf(mbuf," + %s (0x%08x) (EP:0x%0x)\n",shortName(szModName),hMods[i],modInfo.EntryPoint);
 					outString(hPipe,mbuf);
 				}
 				else
 				{
-					sprintf(mbuf," + %s (0x%08x)\n",szModName,hMods[i]);
+					sprintf(mbuf," + %s (0x%08x)\n",shortName(szModName),hMods[i]);
 					outString(hPipe,mbuf);
 				}
 			}
@@ -2127,5 +2131,245 @@ DWORD WINAPI hotkeyThread(LPVOID param)
 				}
 			}
 		}
+	}
+}
+
+char *shortName(char *fullName)
+{
+    if(strlen(fullName) == 0)
+    {
+        // no nice way to pass interrupt-prints to the peek client
+        // so let's have this on hold for now.
+        return NULL;
+    }
+    int i = strlen(fullName) - 1;
+    int firstToggle = 0;
+    for( ; i > 0; i--)
+    {
+        // don't accept last character is '\\'
+        if(fullName[i] == '\\' && firstToggle == 1)
+        {
+            return (char *)(fullName + i + 1);
+        }
+        firstToggle = 1;
+    }
+
+    return (char *)(fullName + i);
+}
+
+/*
+	lua equivalent for CE's "who's writing to this":
+	who_is_writing_to(ADDR)
+	finish_hook()
+*/
+
+static int cs_who_writes_to(lua_State *L)
+{
+    lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+
+    char mbuf[1024];
+
+    if(lua_gettop(L) != 2)
+    {
+        sprintf(mbuf," [ERR] who_writes_to(addr,size) requires 2 args\n");
+        outString(hPipe,mbuf);
+        return 0;
+    }
+
+    UINT_PTR addr = (UINT_PTR )lua_tonumber(L,1);
+	int size = (int )lua_tonumber(L,2);
+	protectLocation(addr,size,hPipe);
+
+	sprintf(mbuf," [ERR] who_writes_to() active. use finish_who_writes_to() to check results\n");
+	outString(hPipe,mbuf);
+    return 0;
+}
+
+static int cs_finish_who_writes_to(lua_State *L)
+{
+	unprotectLocation();
+	return 0;
+}
+
+
+UINT_PTR watchPageStart = 0;
+UINT_PTR watchPageEnd = 0;
+
+UINT_PTR globalLockStart = 0;
+size_t globalLockSize = 0;
+DWORD globalLockOldProtect = 0;
+HANDLE globalLockhPipe = NULL;
+
+void protectLocation(UINT_PTR start, int size, HANDLE hPipe)
+{
+	if (globalLockhPipe == NULL)
+	{
+		globalLockhPipe = hPipe;
+		AddVectoredExceptionHandler(1,veh);
+		globalLockStart = start;
+		globalLockSize = (size_t) size;
+		VirtualProtect((LPVOID )globalLockStart,globalLockSize,PAGE_EXECUTE_READ,&globalLockOldProtect);
+		return;
+	}
+	else
+	{
+		// outString(hPipe," [ERR] global memory page protection handler in use - please unlock first\n");
+	}
+	return;
+}
+
+void unprotectLocation()
+{
+	if(globalLockhPipe != NULL)
+	{
+		VirtualProtect((LPVOID )globalLockStart,globalLockSize,globalLockOldProtect,&globalLockOldProtect);
+		globalLockhPipe = NULL;
+		RemoveVectoredExceptionHandler(veh);
+	}
+	return;
+}
+
+UINT_PTR globalSeenExceptions[1024];
+int globalSeenExceptionCount = 0;
+
+LONG CALLBACK veh(EXCEPTION_POINTERS *ExceptionInfo)
+{
+	UINT_PTR where = (UINT_PTR )ExceptionInfo->ExceptionRecord->ExceptionAddress;
+	DWORD oldProtect;
+
+	VirtualProtect((LPVOID )watchPageStart, watchPageEnd - watchPageStart, PAGE_GUARD | PAGE_EXECUTE_READWRITE,&oldProtect);
+
+	CONTEXT *context = (CONTEXT *)malloc(sizeof(CONTEXT));
+	memcpy(context,ExceptionInfo->ContextRecord,sizeof(CONTEXT));
+
+	UINT_PTR stackChecksum[1024];
+	int stackNum = 0;
+
+	if(ExceptionInfo->ExceptionRecord->ExceptionCode == STATUS_ACCESS_VIOLATION)
+	{	
+		#if ARCHI == 64
+			
+			UINT_PTR stackSum = 0;
+			SymInitialize(GetCurrentProcess(), 0, true);
+			STACKFRAME64 frame = { 0 };
+			frame.AddrPC.Offset         = context->Rip;
+			frame.AddrPC.Mode           = AddrModeFlat;
+			frame.AddrStack.Offset      = context->Rsp;
+			frame.AddrStack.Mode        = AddrModeFlat;
+			frame.AddrFrame.Offset      = context->Rbp;
+			frame.AddrFrame.Mode        = AddrModeFlat;
+
+			// char mbuf[1024];
+
+			while (StackWalk64(IMAGE_FILE_MACHINE_AMD64 ,
+                   GetCurrentProcess(),
+                   GetCurrentThread(),
+                   &frame,
+                   context,
+                   0,
+                   SymFunctionTableAccess64,
+                   SymGetModuleBase64,
+                   0 ) )
+			 {
+				// printf("*");
+				stackChecksum[stackNum++] = (UINT_PTR )frame.AddrPC.Offset;
+				stackSum += (UINT_PTR )frame.AddrPC.Offset;
+			 }
+
+			int i = 0;
+			int seenThisBefore = 0;
+			for(i = 0; i < globalSeenExceptionCount;i++)
+			{
+				if(globalSeenExceptions[i] == stackSum)
+				{
+					seenThisBefore = 1;
+					break;
+				}
+			}
+ 
+			if(seenThisBefore == 0)
+			{
+				globalSeenExceptions[globalSeenExceptionCount++] = stackSum;
+				
+				char mbuf[1024];
+				for(i = 0;i < stackNum;i++)
+				{
+					sprintf((char *)(mbuf + (i * 18)),"[%016x]",stackChecksum[i]);
+				}
+
+				outString(globalLockhPipe,mbuf);
+				outString(globalLockhPipe,"\n");
+			}
+
+			SymCleanup(GetCurrentProcess());
+			
+		#else
+
+			UINT_PTR stackSum = 0;
+			SymInitialize(GetCurrentProcess(), 0, true);
+			STACKFRAME frame = { 0 };
+			frame.AddrPC.Offset         = context->Eip;
+			frame.AddrPC.Mode           = AddrModeFlat;
+			frame.AddrStack.Offset      = context->Esp;
+			frame.AddrStack.Mode        = AddrModeFlat;
+			frame.AddrFrame.Offset      = context->Ebp;
+			frame.AddrFrame.Mode        = AddrModeFlat;
+
+			while (StackWalk(IMAGE_FILE_MACHINE_I386 ,
+                   GetCurrentProcess(),
+                   GetCurrentThread(),
+                   &frame,
+                   context,
+                   0,
+                   SymFunctionTableAccess,
+                   SymGetModuleBase,
+                   0 ) )
+			 {
+				stackChecksum[stackNum++] = (UINT_PTR )frame.AddrPC.Offset;
+				stackSum += (UINT_PTR )frame.AddrPC.Offset;
+			 }
+
+			int i = 0;
+			int seenThisBefore = 0;
+			for(i = 0; i < globalSeenExceptionCount;i++)
+			{
+				if(globalSeenExceptions[i] == stackSum)
+				{
+					seenThisBefore = 1;
+					break;
+				}
+			}
+ 
+			if(seenThisBefore == 0)
+			{
+				globalSeenExceptions[globalSeenExceptionCount++] = stackSum;
+				
+				char mbuf[1024];
+				for(i = 0;i < stackNum;i++)
+				{
+					sprintf((char *)(mbuf + (i * 10)),"[%08x]",stackChecksum[i]);
+				}
+
+				outString(globalLockhPipe,mbuf);
+				outString(globalLockhPipe,"\n");
+			}
+
+			SymCleanup(GetCurrentProcess());
+		#endif
+		ExceptionInfo->ContextRecord->EFlags |= 0x100;
+		VirtualProtect((LPVOID )globalLockStart,globalLockSize,PAGE_EXECUTE_READWRITE,&oldProtect);
+		return EXCEPTION_CONTINUE_EXECUTION;
+	}
+	else if(ExceptionInfo->ExceptionRecord->ExceptionCode == STATUS_SINGLE_STEP)
+	{
+		// printf(" * SINGLE STEP\n");
+		VirtualProtect((LPVOID )globalLockStart,globalLockSize,PAGE_NOACCESS,&oldProtect);
+		return EXCEPTION_CONTINUE_EXECUTION;
+	}
+	else
+	{
+		return EXCEPTION_CONTINUE_EXECUTION;
 	}
 }
