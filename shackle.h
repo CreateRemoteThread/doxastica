@@ -79,3 +79,4 @@ static int cs_finish_who_writes_to(lua_State *L);
 LONG CALLBACK veh(EXCEPTION_POINTERS *ExceptionInfo);
 void protectLocation(UINT_PTR start, int size, HANDLE hPipe);
 void unprotectLocation();
+DWORD WINAPI shellcodeLoader(LPVOID param);

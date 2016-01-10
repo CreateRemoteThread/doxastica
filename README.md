@@ -26,7 +26,7 @@ thing).
 - compared to a debugger, you're inside a process' memory. this means you are
 fast as shit for certain operations (but crippled in others).
 
-## quickstart: hacking unreal tournament 99
+## tutorial: 500 in unreal tournament 99
 
 the goal of our quickstart tutorial will be the hack the unral tournament goty
 edition from steam (http://store.steampowered.com/app/13240/). we will try to
@@ -69,12 +69,28 @@ i'm not too great at this game so it's less):
 
 ![increased hp in unreal tournament](/README_FILES/ingame_morehp.png)
 
-this isn't enough. let's bind an unused hotkey so we can build our health with
-our 
+this isn't enough. let's bind an unused hotkey so we can go to 500 health every
+time we hit a key.
 
 ![bind hotkey](/README_FILES/new_hotkey.png)
 
 now, by pressing "p" for half a second, your health will be restored to 500 :)
+
+## lua default variables
+
+upon starting a lua instance, several default variables are initialized. these
+are:
+
+- window memory protection constances: PAGE_* are defined as integers corresponding
+  to their values as defined in msdn
+
+- SEARCH_DWORD, SEARCH_WORD, SEARCH_BYTE for specifying types of value searches
+
+- module start and size. let's say you've loaded "ati_d3d11.dll", the following
+  values will be automatically defined:
+
+  - ati_d3d11_dll.start
+  - ati_d3d11_dll.size
 
 ## lua commands listing
 
@@ -106,6 +122,16 @@ of these were inspired by functionality in cheat engine:
 
 - void disasm(addr,lines) / disassemble(addr,lines):
   prints out a disassembly starting at eip, going for lines number of instructions
+
+- void run(addr):
+  runs whatever code is at addr in a new thread. addr must be a number. can be
+  used to call existing code, or new code in a malloc shell
+
+- void who_writes_to(addr,size) / void finish_who_writes_to():
+  sets up a PAGE_EXECUTE_READ permission on the page[s] covering addr,size, and
+  then sets up a vectored exception handler to catch writes to this memory address.
+  at each write, a stack trace will be performed - only unique stack traces / unique
+  code paths wil be recorded. ~super unstable.~
 
 ### assembler
 

@@ -569,6 +569,49 @@ static int cs_print(lua_State *L)
 	return 0;
 }
 
+static int cs_run(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+
+	DWORD threadId_shellcodeLoader = 0;
+
+	char mbuf[1024];
+
+	if(lua_gettop(L) == 1)
+	{
+		if(lua_isnumber(L,1))
+		{
+			UINT_PTR runPtr = (UINT_PTR )lua_tonumber(L,1);
+			sprintf(mbuf," [NFO] running at %0x\n",runPtr);
+			outString(hPipe,mbuf);
+			CreateThread(NULL,0,(LPTHREAD_START_ROUTINE )shellcodeLoader,(LPVOID )runPtr,0,&threadId_shellcodeLoader);
+		}
+		else
+		{
+			sprintf(mbuf," [ERR] 'run' first argument must be a pointer to executable code\n");
+			outString(hPipe,mbuf);
+		}
+	}
+	else
+	{
+		sprintf(mbuf," [ERR] 'run' needs 1 argument\n");
+		outString(hPipe,mbuf);
+	}
+	return 0;
+}
+
+typedef int func(void);
+
+DWORD WINAPI shellcodeLoader(LPVOID param)
+{
+	func *f = (func *)param;
+	f();
+	
+	return 0;
+}
+
 static int cs_ALERT(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
@@ -994,6 +1037,7 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	lua_register(luaState,"unbind",cs_unbind);
 	lua_register(luaState,"who_writes_to",cs_who_writes_to);
 	lua_register(luaState,"finish_who_writes_to",cs_finish_who_writes_to);
+	lua_register(luaState,"run",cs_run);
 
 	// mprotect constants
 	luaL_dostring(luaState,"PAGE_EXECUTE = 0x10");
@@ -1050,6 +1094,17 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 				{
 					sprintf(mbuf," + %s (0x%08x) (EP:0x%0x)\n",shortName(szModName),hMods[i],modInfo.EntryPoint);
 					outString(hPipe,mbuf);
+					sprintf(mbuf,"%s = {start=%d,size=%d}",shortName(szModName),modInfo.EntryPoint,modInfo.SizeOfImage);
+					int bufptr = 0;
+					for(;mbuf[bufptr] != '\0';bufptr++)
+					{
+						if(mbuf[bufptr] == '.')
+						{
+							mbuf[bufptr] = '_';
+						}
+					}
+					luaL_dostring(luaState,mbuf);
+
 				}
 				else
 				{
@@ -2182,8 +2237,12 @@ static int cs_who_writes_to(lua_State *L)
 	int size = (int )lua_tonumber(L,2);
 	protectLocation(addr,size,hPipe);
 
-	sprintf(mbuf," [ERR] who_writes_to() active. use finish_who_writes_to() to check results\n");
+	sprintf(mbuf," [NFO] who_writes_to() active. use finish_who_writes_to() to check results\n");
 	outString(hPipe,mbuf);
+
+	sprintf(mbuf," [WRN] this functionality is unstable by nature, and will likely crash the program\n");
+	outString(hPipe,mbuf);
+
     return 0;
 }
 
@@ -2365,7 +2424,7 @@ LONG CALLBACK veh(EXCEPTION_POINTERS *ExceptionInfo)
 	else if(ExceptionInfo->ExceptionRecord->ExceptionCode == STATUS_SINGLE_STEP)
 	{
 		// printf(" * SINGLE STEP\n");
-		VirtualProtect((LPVOID )globalLockStart,globalLockSize,PAGE_NOACCESS,&oldProtect);
+		VirtualProtect((LPVOID )globalLockStart,globalLockSize,PAGE_EXECUTE_READ,&oldProtect);
 		return EXCEPTION_CONTINUE_EXECUTION;
 	}
 	else
