@@ -1,0 +1,36 @@
+
+static int cs_ptrscan(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+	if (lua_gettop(L) == 2)
+	{
+		searchResult *oldResults = (searchResult *)lua_touserdata(L,1);
+
+		if(validateSearchResult(oldResults) == 0)
+		{
+			outString(hPipe," [ERR] argument 1 was not a valid search result\n");
+			return 0;
+		}
+		int searchIndex = lua_tonumber(L,2);
+		
+		if(searchIndex >= oldResults->numSolutions)
+		{
+			char mbuf[1024];
+			sprintf(mbuf," [ERR] index too big, this search result set only has %d solutions\n",oldResults->numSolutions);
+			outString(hPipe,mbuf);
+			outString(hPipe," [NFO] this command indexes from 0, search_fetch(result,0) fetches the first result");
+			return 0;
+		}
+
+		lua_pushnumber(L,oldResults->arraySolutions[searchIndex]);
+		return 1;
+	}
+	else
+	{
+		outString(hPipe," [ERR] search_fetch(results,index) needs 2 args\n");
+		return 0;
+	}
+	return 0;
+}

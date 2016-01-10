@@ -11,6 +11,7 @@
 #include <ctype.h>
 #include "shackle.h"
 #include "search.h"
+#include "ptrscan.h"
 #include "xedparse\src\XEDParse.h"
 
 #define EOFMARK		"<eof>"
@@ -91,6 +92,8 @@ untouched user32!MessageBoxA:
 #define CL_ON_64BIT_IS_A_PIECE_OF_SHIT 1
 
 #define LUA_MAXINPUT		512
+
+void printShortResults(HANDLE hPipe,lua_State *L,searchResult *m);
 
 unsigned long WINAPI newMessageBox(unsigned long hwnd,char *msg,char *title,unsigned long flags)
 {
@@ -761,7 +764,7 @@ static int cs_search_filter(lua_State *L)
 				return 0;
 				break;
 		}
-		printShortResults(hPipe,oldResults);
+		printShortResults(hPipe,L,oldResults);
 		lua_pushnumber(L,newResults);
 		return 1;
 	}
@@ -2075,20 +2078,23 @@ static int cs_assemble(lua_State *L)
 	return 0;
 }
 
-void printShortResults(HANDLE hPipe,searchResult *m)
+void printShortResults(HANDLE hPipe,lua_State *L,searchResult *m)
 {
 	char mbuf[1024];
 	if(validateSearchResult(m) == 0)
 	{
 		return;
 	}
-	if(m->numSolutions <= 5)
+	if(m->numSolutions <= 10)
 	{
+        luaL_dostring(L,"results = {}");
 		int i = 0;
 		for( ; i < m->numSolutions; i++)
 		{
 			sprintf(mbuf," [%d.] 0x%0x\n",i,m->arraySolutions[i]);
 			outString(hPipe,mbuf);
+            sprintf(mbuf,"results[%d] = 0x%0x",i,m->arraySolutions[i]);
+            luaL_dostring(L,mbuf);
 		}
 	}
 	else

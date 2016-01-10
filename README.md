@@ -166,6 +166,8 @@ such as labels. sorry =(
   that this cannot change the TYPE of search: that is, if the search was created
   looking for dwords, this will only look for dwords.
 
+  this sets the results variable to an array: that is, 
+
 - int search_fetch(searchobj,index):
   this returns the n'th search result (as specified by "index") in a given search
   object, such that 
