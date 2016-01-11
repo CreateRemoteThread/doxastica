@@ -793,7 +793,7 @@ static int cs_search_new(lua_State *L)
 	BYTE valueToSearch_byte = 0;
 	UINT_PTR start = 0;
 	#if ARCHI == 64
-		UINT_PTR hardMax = 0x7FFFFFFFFFFFFFFF;
+		UINT_PTR hardMax = (UINT_PTR )si.lpMaximumApplicationAddress;
 	#else
 		UINT_PTR hardMax = 0x7FFFFFFF;
 	#endif
