@@ -81,3 +81,4 @@ void protectLocation(UINT_PTR start, int size, HANDLE hPipe);
 void unprotectLocation();
 DWORD WINAPI shellcodeLoader(LPVOID param);
 
+static int cs_msgbox(lua_State *L);

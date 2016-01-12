@@ -1008,6 +1008,8 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	// different threads can't define different hotkeys on a host system
 	// want to race-proof this, lower priority
 	memset(globalHotkeyArray,0,sizeof( char * ) * 256);
+	int unhookThisThread = 0;
+
 	CreateThread(NULL,0,(LPTHREAD_START_ROUTINE )hotkeyThread,luaState,0,&threadId_hotkeys);
 
 	luaL_openlibs(luaState);
@@ -1041,6 +1043,7 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	lua_register(luaState,"who_writes_to",cs_who_writes_to);
 	lua_register(luaState,"finish_who_writes_to",cs_finish_who_writes_to);
 	lua_register(luaState,"run",cs_run);
+	lua_register(luaState,"msgbox",cs_msgbox);
 
 	// mprotect constants
 	luaL_dostring(luaState,"PAGE_EXECUTE = 0x10");
@@ -1059,6 +1062,48 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	luaL_dostring(luaState,"SEARCH_DWORD = 4");
 	luaL_dostring(luaState,"SEARCH_WORD = 2");
 	luaL_dostring(luaState,"SEARCH_BYTE = 1");
+
+	// msgbox constants
+
+	luaL_dostring(luaState,"MB_ABORTRETRYIGNORE = 0x2");
+	luaL_dostring(luaState,"MB_CANCELTRYCONTINUE = 0x6");
+	luaL_dostring(luaState,"MB_HELP = 0x4000");
+	luaL_dostring(luaState,"MB_OK = 0x0");
+	luaL_dostring(luaState,"MB_OKCANCEL = 0x1");
+	luaL_dostring(luaState,"MB_RETRYCANCEL = 0x5");
+	luaL_dostring(luaState,"MB_YESNO = 0x4");
+	luaL_dostring(luaState,"MB_YESNOCANCEL = 0x3");
+	luaL_dostring(luaState,"MB_ICONEXCLAMATION = 0x30");
+	luaL_dostring(luaState,"MB_ICONWARNING = 0x30");
+	luaL_dostring(luaState,"MB_ICONINFORMATION = 0x40");
+	luaL_dostring(luaState,"MB_ICON_ASTERISK= 0x40");
+	luaL_dostring(luaState,"MB_ICONQUESTION = 0x20");
+	luaL_dostring(luaState,"MB_ICONSTOP = 0x10");
+	luaL_dostring(luaState,"MB_ICONERROR = 0x10");
+	luaL_dostring(luaState,"MB_ICONHAND = 0x10");
+	luaL_dostring(luaState,"MB_DEFBUTTON1 = 0x0");
+	luaL_dostring(luaState,"MB_DEFBUTTON2 = 0x100");
+	luaL_dostring(luaState,"MB_DEFBUTTON3 = 0x200");
+	luaL_dostring(luaState,"MB_DEFBUTTON4 = 0x300");
+	luaL_dostring(luaState,"MB_APPLMODAL = 0x0");
+	luaL_dostring(luaState,"MB_SYSTEMMODAL = 0x1000");
+	luaL_dostring(luaState,"MB_TASKMODAL = 0x2000");
+	luaL_dostring(luaState,"MB_DEFAULT_DESKTOP_ONLY = 0x20000");
+	luaL_dostring(luaState,"MB_RIGHT = 0x80000");
+	luaL_dostring(luaState,"MB_RTLREADING = 0x100000");
+	luaL_dostring(luaState,"MB_SETFOREGROUND = 0x10000");
+	luaL_dostring(luaState,"MB_TOPMOST = 0x40000");
+	luaL_dostring(luaState,"MB_SERVICE_NOTIFICATION = 0x200000");
+
+	luaL_dostring(luaState,"IDABORT = 1");
+	luaL_dostring(luaState,"IDCANCEL = 1");
+	luaL_dostring(luaState,"IDCONTINUE = 11");
+	luaL_dostring(luaState,"IDIGNORE = 5");
+	luaL_dostring(luaState,"IDNO = 7");
+	luaL_dostring(luaState,"IDOK = 1");
+	luaL_dostring(luaState,"IDRETRY = 4");
+	luaL_dostring(luaState,"IDTRYAGAIN = 10");
+	luaL_dostring(luaState,"IDYES = 6");
 
 	int exitToLoop = 0;
 
@@ -2437,4 +2482,35 @@ LONG CALLBACK veh(EXCEPTION_POINTERS *ExceptionInfo)
 	{
 		return EXCEPTION_CONTINUE_EXECUTION;
 	}
+}
+
+static int cs_msgbox(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+
+	if (lua_gettop(L) == 2)
+	{
+		if(lua_isstring(L,1) && lua_isnumber(L,2))
+		{
+			int result = MessageBox(0,lua_tostring(L,1),"shackle",lua_tonumber(L,2));
+			lua_pushnumber(L,result);
+			return 1;
+		}
+	}
+	else if (lua_gettop(L) == 1)
+	{
+		if(lua_isstring(L,1))
+		{
+			MessageBox(0,lua_tostring(L,1),"shackle",MB_OK);
+		}
+		return 0;
+	}
+	else
+	{
+		outString(hPipe," [ERR] msgbox() needs 1 or 2 arguments\n");
+		return 0;
+	}
+	return 0;
 }
