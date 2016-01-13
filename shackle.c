@@ -843,14 +843,29 @@ static int cs_search_new(lua_State *L)
 	UINT_PTR readStart = 0;
 	int skippedPages = 0;
 
+	//int priority = GetThreadPriority(GetCurrentThread());
+	//SetThreadPriority(GetCurrentThread(),THREAD_PRIORITY_HIGHEST);
+
 	int totalSolutionCount = 0;
 
 	searchResult *results = NULL;
 
+	MEMORY_BASIC_INFORMATION mbi;
 	for( readStart ; readStart < hardMax ; readStart += si.dwPageSize )
 	{
 		int solutionCount = 0;
 		UINT_PTR *solutions = (UINT_PTR *)malloc(sizeof(UINT_PTR) * (si.dwPageSize / 4));
+		int vqresult = VirtualQuery((LPCVOID )readStart,&mbi,sizeof(MEMORY_BASIC_INFORMATION));
+		if(vqresult == 0)
+		{
+			readStart = (UINT_PTR )((UINT_PTR )mbi.BaseAddress + mbi.RegionSize);
+			continue;
+		}
+		else if(mbi.State != MEM_COMMIT || mbi.Protect == PAGE_NOACCESS)
+		{
+			readStart = (UINT_PTR )((UINT_PTR )mbi.BaseAddress + mbi.RegionSize);
+			continue;
+		}
 
 		int retVal = 0;
 		switch(searchType)
@@ -885,6 +900,8 @@ static int cs_search_new(lua_State *L)
 		
 		free(solutions);
 	}
+
+	//SetThreadPriority(GetCurrentThread(),priority);
 
 	results->signature = SEARCH_SIG;
 	results->searchType = searchType;
