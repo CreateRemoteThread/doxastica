@@ -1,7 +1,20 @@
 @echo off
 
+IF NOT EXIST xed32 MKDIR xed32
+IF NOT EXIST xed64 MKDIR xed64
+IF NOT EXIST lua32 MKDIR lua32
+IF NOT EXIST lua64 MKDIR lua64
+
 del *.obj
 del lua53\*.obj
+
+IF [%1]==[prereqs64] build.bat bea64
+IF [%1]==[prereqs64] build.bat xed64
+IF [%1]==[prereqs64] build.bat lua64
+
+IF [%1]==[prereqs32] build.bat bea32
+IF [%1]==[prereqs32] build.bat xed32
+IF [%1]==[prereqs32] build.bat lua32
 
 IF [%1]==[ldr64] cl /D ARCHI_64 /O2 /Zi /c /Foldr64.obj /Tp ldr.c
 IF [%1]==[ldr64] link /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:ldr64.exe ldr64.obj
