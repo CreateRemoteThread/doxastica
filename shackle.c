@@ -12,6 +12,7 @@
 #include "shackle.h"
 #include "search.h"
 #include "ptrscan.h"
+#include "pcontrol.h"
 #include "xedparse\src\XEDParse.h"
 
 #define EOFMARK		"<eof>"
@@ -1061,6 +1062,7 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	lua_register(luaState,"finish_who_writes_to",cs_finish_who_writes_to);
 	lua_register(luaState,"run",cs_run);
 	lua_register(luaState,"msgbox",cs_msgbox);
+	lua_register(luaState,"listthreads",cs_listthreads);
 
 	// mprotect constants
 	luaL_dostring(luaState,"PAGE_EXECUTE = 0x10");

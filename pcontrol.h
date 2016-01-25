@@ -1,1 +1,1 @@
-void __pcontrol_pause();
+int cs_listthreads(lua_State *L);
