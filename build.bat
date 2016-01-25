@@ -5,16 +5,24 @@ IF NOT EXIST xed64 MKDIR xed64
 IF NOT EXIST lua32 MKDIR lua32
 IF NOT EXIST lua64 MKDIR lua64
 
-del *.obj
-del lua53\*.obj
+del /Q *.obj
+del /Q lua53\*.obj
 
-IF [%1]==[prereqs64] build.bat bea64
-IF [%1]==[prereqs64] build.bat xed64
-IF [%1]==[prereqs64] build.bat lua64
+IF [%1]==[prereqs64] call build.bat bea64
+IF [%1]==[prereqs64] call build.bat xed64
+IF [%1]==[prereqs64] call build.bat lua64
 
-IF [%1]==[prereqs32] build.bat bea32
-IF [%1]==[prereqs32] build.bat xed32
-IF [%1]==[prereqs32] build.bat lua32
+IF [%1]==[prereqs32] call build.bat bea32
+IF [%1]==[prereqs32] call build.bat xed32
+IF [%1]==[prereqs32] call build.bat lua32
+
+IF [%1]==[bins32] call build.bat shackle32
+IF [%1]==[bins32] call build.bat ldr32
+IF [%1]==[bins32] call build.bat peek
+
+IF [%1]==[bins64] call build.bat shackle64
+IF [%1]==[bins64] call build.bat ldr64
+IF [%1]==[bins64] call build.bat peek
 
 IF [%1]==[ldr64] cl /D ARCHI_64 /O2 /Zi /c /Foldr64.obj /Tp ldr.c
 IF [%1]==[ldr64] link /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:ldr64.exe ldr64.obj
@@ -63,14 +71,14 @@ IF [%1]==[test32] link /out:test32.exe test64.obj user32.lib
 IF [%1]==[test64] cl /O2 /Zi /c /Tp test64.c
 IF [%1]==[test64] link /out:test64.exe test64.obj user32.lib
 
-IF [%1]==[xed32] del xed32\*.*
+IF [%1]==[xed32] del /Q xed32\*.*
 IF [%1]==[xed32] cd xedparse\src
 IF [%1]==[xed32] cl /D XEDPARSE_STATIC /O2 /Zi /c /Tp *.cpp
 IF [%1]==[xed32] cd ..
 IF [%1]==[xed32] cd ..
 IF [%1]==[xed32] move xedparse\src\*.obj xed32\
 
-IF [%1]==[xed64] del xed64\*.*
+IF [%1]==[xed64] del /Q xed64\*.*
 IF [%1]==[xed64] cd xedparse\src
 IF [%1]==[xed64] cl /D XEDPARSE_STATIC /O2 /Zi /c /Tp *.cpp
 IF [%1]==[xed64] cd ..
