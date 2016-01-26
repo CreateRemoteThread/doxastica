@@ -363,6 +363,9 @@ DWORD WINAPI IPCServerThread( LPVOID lpParam )
 {
 	char *mbuf = (char *)malloc(1024);
 	char *pipeName = (char *)malloc(1024);
+
+	__registerThread(GetCurrentThreadId());
+
 	// cuz im a hipster too
 	for(;;)
 	{
@@ -405,6 +408,8 @@ DWORD WINAPI IPCServerThread( LPVOID lpParam )
 	}
 	free(pipeName);
 	free(mbuf);
+
+	__unregisterThread(GetCurrentThreadId());
 	return 0;
 }
 
@@ -610,8 +615,12 @@ typedef int func(void);
 
 DWORD WINAPI shellcodeLoader(LPVOID param)
 {
+	__registerThread(GetCurrentThreadId());
+
 	func *f = (func *)param;
 	f();
+
+	__unregisterThread(GetCurrentThreadId());
 	
 	return 0;
 }
@@ -1063,6 +1072,8 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	lua_register(luaState,"run",cs_run);
 	lua_register(luaState,"msgbox",cs_msgbox);
 	lua_register(luaState,"listthreads",cs_listthreads);
+	lua_register(luaState,"stopthreads",cs_stopthreads);
+	lua_register(luaState,"resumethreads",cs_resumethreads);
 
 	// mprotect constants
 	luaL_dostring(luaState,"PAGE_EXECUTE = 0x10");
@@ -2224,6 +2235,7 @@ static int cs_unbind(lua_State *L)
 
 DWORD WINAPI hotkeyThread(LPVOID param)
 {
+	__registerThread(GetCurrentThreadId());
 	lua_State *L = (lua_State *)param;
 
 	lua_getglobal(L,"__hpipe");
@@ -2257,6 +2269,7 @@ DWORD WINAPI hotkeyThread(LPVOID param)
 			}
 		}
 	}
+	__unregisterThread(GetCurrentThreadId());
 }
 
 char *shortName(char *fullName)

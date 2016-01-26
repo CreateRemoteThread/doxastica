@@ -2,7 +2,7 @@
 #include <windows.h>
 
 /*
-	- pretty much ipc telnet, server is in the shackle library
+	- ipc telnet with logging and save to file
 */
 
 void chomp(char *s);

@@ -159,14 +159,13 @@ such as labels. sorry =(
 ### memory search
 
 - searchobj search_new(search_type,value,start,end):
-  attempts to search a memory type
+  attempts to search mapped memory for a value of a given size
+  (i.e. SEARCH_DWORD, SEARCH_WORD, SEARCH_BYTE)
 
 - int search_filter(searchobj,newvalue):
   attempts to filter a previously identified list of values to a newvalue. note
   that this cannot change the TYPE of search: that is, if the search was created
   looking for dwords, this will only look for dwords.
-
-  this sets the results variable to an array: that is, 
 
 - int search_fetch(searchobj,index):
   this returns the n'th search result (as specified by "index") in a given search
