@@ -1025,6 +1025,8 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	BOOL fSuccess = FALSE;
 	HANDLE hPipe = (HANDLE )lpvParam;
 
+	__registerThread(GetCurrentThreadId());
+
 	OutputDebugString(" - IPC Server Instance created\n");
 
 	// moved here for thread-safety.
@@ -1288,6 +1290,9 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	free(mbuf);
 	free(pchRequest);
 	free(pchReply);
+
+	__unregisterThread(GetCurrentThreadId());
+
 	return 1;
 }
 
