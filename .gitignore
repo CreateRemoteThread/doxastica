@@ -35,3 +35,6 @@
 *.pdb
 *.obj
 *.manifest
+
+# no notes files
+*.txt

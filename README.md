@@ -9,10 +9,13 @@ another process' memory space
 - "shackle.dll", which is a lua interpreter to be injected into a target
 process. upon loading, this dll opens up an ipc server, which you can talk to
 with the "peek" client.
-- "peek", basically an ipc telnet. invoke it with 
+- "peek", basically an ipc telnet. invoke it with a pid as argument - a
+full command-line will be supplied by ldr32/ldr64 on a successful inject
 
-this project does not use any debug functionality - shackle runs as it's own
-collection of threads within the host process.
+this project does not use any debug functionality[+] - shackle runs as it's
+own collection of threads within the host process.
+
+[+] installs it's own veh handler to catch guard page exceptions
 
 ## what's the difference between this and cheatengine/tsearch
 
