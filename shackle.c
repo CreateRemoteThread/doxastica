@@ -348,10 +348,28 @@ DWORD threadId_hotkeys = 0;
 
 BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
 {
+	MODULEINFO mi;
     if(fdwReason == DLL_PROCESS_ATTACH && init == 0)
       {
         init = 1;
-		OutputDebugString(" - shackle dll loaded\n");
+		OutputDebugString(" - shackle dll loaded, deploying stealth\n");
+		GetModuleInformation(GetCurrentProcess(),hinstDLL,&mi,sizeof(mi));
+
+		DWORD oldProtect = 0;
+
+
+		IMAGE_DOS_HEADER *imgDosHdr = (IMAGE_DOS_HEADER *)mi.lpBaseOfDll;
+		IMAGE_NT_HEADERS *imgNtHdrs = (IMAGE_NT_HEADERS *)(imgDosHdr + imgDosHdr->e_lfanew);
+
+		VirtualProtect(mi.lpBaseOfDll,1,PAGE_READWRITE,&oldProtect);
+		imgDosHdr->e_magic = 0;
+		VirtualProtect(mi.lpBaseOfDll,1,oldProtect,&oldProtect);
+
+		VirtualProtect((LPVOID )(imgNtHdrs),1,PAGE_READWRITE,&oldProtect);
+		imgNtHdrs->Signature = 0;
+		VirtualProtect((LPVOID )(imgNtHdrs),1,oldProtect,&oldProtect);
+
+		OutputDebugString(" - creating server thread\n");
 		CreateThread(NULL,0,IPCServerThread,NULL,0,&threadId);
 		
 		return TRUE;
