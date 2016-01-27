@@ -251,31 +251,98 @@ int __checkThread(DWORD threadId)
 	return 0;
 }
 
-// debug register + veh (i.e. "who_writes_to_this")
-int cs_membreak(lua_State *L)
+int cs_m_who_writes_to(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
 	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
 	lua_pop(L,1);
 
+	UINT_PTR protectAddr = 0;
+
+	if (lua_gettop(L) == 1)
+	{
+		if(lua_isnumber(L,1))
+		{
+			protectAddr = lua_tonumber(L,1);
+		}
+	}
+	else
+	{
+		char mbuf[1024];
+		memset(mbuf,0,1024);
+		sprintf(mbuf," [ERR] m_who_writes_to() needs an address\n");
+		outString(hPipe,mbuf);
+	}
+
 	DWORD ownProcess = GetCurrentProcessId();
 	DWORD ownThread = GetCurrentThreadId();
 	THREADENTRY32 te32;
-
 
 	te32.dwSize = sizeof(THREADENTRY32);
 
 	HANDLE hThreadSnap = CreateToolhelp32Snapshot( TH32CS_SNAPTHREAD, 0 ); 
 	if( hThreadSnap == INVALID_HANDLE_VALUE ) 
 	{
-		outString(hPipe," [ERR] createtoolhelp32snapshot failed\n");
+		outString(hPipe," [ERR] m_who_writes_to: createtoolhelp32snapshot failed\n");
 		return 0;
 	}
 
 	// can you deny this?
 	if(Thread32First(hThreadSnap,&te32) == 0)
 	{
-		outString(hPipe," [ERR] thread32first returned 0, what's up?\n");
+		outString(hPipe," [ERR] m_who_writes_to: thread32first returned 0\n");
+		return 0;
+	}
+
+	totalThreads = 0;
+
+	AddVectoredExceptionHandler(1,veh_m);
+
+	do
+	{
+		// don't worry about our own threads.
+		if(te32.th32OwnerProcessID == ownProcess && te32.th32ThreadID != GetCurrentThreadId() && __checkThread(te32.th32ThreadID) == 0)
+		{
+			HANDLE hThread = OpenThread(THREAD_ALL_ACCESS,FALSE,te32.th32ThreadID);
+			SuspendThread(hThread);
+			protectSingleThread(hThread,1);
+			ResumeThread(hThread);
+			CloseHandle(hThread);
+			totalThreads += 1;
+		}
+	}
+	while (Thread32Next(hThreadSnap,&te32));
+	CloseHandle(hThreadSnap);
+
+	lua_pushnumber(L,totalThreads);
+	return 1;
+}
+
+int cs_m_finish_who_writes_to(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+
+	RemoveVectoredExceptionHandler(veh_m);
+
+	DWORD ownProcess = GetCurrentProcessId();
+	DWORD ownThread = GetCurrentThreadId();
+	THREADENTRY32 te32;
+
+	te32.dwSize = sizeof(THREADENTRY32);
+
+	HANDLE hThreadSnap = CreateToolhelp32Snapshot( TH32CS_SNAPTHREAD, 0 ); 
+	if( hThreadSnap == INVALID_HANDLE_VALUE ) 
+	{
+		outString(hPipe," [ERR] m_who_writes_to: createtoolhelp32snapshot failed\n");
+		return 0;
+	}
+
+	// can you deny this?
+	if(Thread32First(hThreadSnap,&te32) == 0)
+	{
+		outString(hPipe," [ERR] m_who_writes_to: thread32first returned 0\n");
 		return 0;
 	}
 
@@ -288,6 +355,8 @@ int cs_membreak(lua_State *L)
 		{
 			HANDLE hThread = OpenThread(THREAD_ALL_ACCESS,FALSE,te32.th32ThreadID);
 			SuspendThread(hThread);
+			unprotectSingleThread(hThread);
+			ResumeThread(hThread);
 			CloseHandle(hThread);
 			totalThreads += 1;
 		}
@@ -297,4 +366,48 @@ int cs_membreak(lua_State *L)
 
 	lua_pushnumber(L,totalThreads);
 	return 1;
+}
+
+// we only have a single register
+void protectSingleThread(HANDLE hThread, UINT_PTR protectLocation)
+{
+	CONTEXT c;
+	c.ContextFlags = CONTEXT_ALL;
+	GetThreadContext(hThread,&c);
+	c.Dr6 = 0;
+    c.Dr0 = protectLocation;
+    c.Dr2 = protectLocation;
+    c.Dr3 = protectLocation;
+    c.Dr1 = protectLocation;
+	c.Dr7 = 0xff55ffff; // 0b11111111010101011111111111111111;
+	SetThreadContext(hThread,&c);
+	return;
+}
+
+// AddVectoredExceptionHandler(1,veh_m);
+// RemoveVectoredExceptionHandler(veh_m);
+
+void unprotectSingleThread(HANDLE hThread)
+{
+
+	CONTEXT c;
+	c.ContextFlags = CONTEXT_ALL;
+	GetThreadContext(hThread,&c);
+	c.Dr6 = 0;
+	/*
+    c.Dr0 = protectLocation;
+    c.Dr2 = protectLocation;
+    c.Dr3 = protectLocation;
+    c.Dr1 = protectLocation;
+	*/
+	c.Dr7 = 0;
+	SetThreadContext(hThread,&c);
+	return;
+}
+
+LONG CALLBACK veh_m(EXCEPTION_POINTERS *ExceptionInfo)
+{
+	int i = 0;
+	MessageBoxA(0,"123","456",MB_OK);
+	return EXCEPTION_CONTINUE_EXECUTION;
 }

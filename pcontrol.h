@@ -238,3 +238,11 @@ private:
 
 // Based on the code of Sven B. Schreiber on:
 // http://www.informit.com/articles/article.aspx?p=22442&seqNum=5
+
+int cs_m_who_writes_to(lua_State *L);
+int cs_m_finish_who_writes_to(lua_State *L);
+
+void protectSingleThread(HANDLE hThread, UINT_PTR protectLocation);
+void unprotectSingleThread(HANDLE hThread);
+
+LONG CALLBACK veh_m(EXCEPTION_POINTERS *ExceptionInfo);
