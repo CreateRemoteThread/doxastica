@@ -289,7 +289,7 @@ int cs_search_fetch(lua_State *L)
 	}
 	else
 	{
-		outString(hPipe," [ERR] search_fetch(results,index) needs 2 args\n");
+		outString(hPipe," [ERR] search_fetch(results,index) needs 2 arguments\n");
 		return 0;
 	}
 	return 0;
