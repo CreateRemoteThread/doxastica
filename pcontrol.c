@@ -251,7 +251,7 @@ int __checkThread(DWORD threadId)
 	return 0;
 }
 
-// pop a memory break into every thread
+// debug register + veh (i.e. "who_writes_to_this")
 int cs_membreak(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");

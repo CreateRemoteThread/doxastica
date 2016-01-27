@@ -6,5 +6,5 @@ struct ptrResult
 	DWORD signature;
 };
 
-static int cs_ptrscan(lua_State *L);
+int cs_ptrscan(lua_State *L);
 int validatePtrResult(ptrResult *p);

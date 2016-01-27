@@ -27,3 +27,10 @@ int search_filter_byte(searchResult *m, BYTE newvalue);
 searchResult *mergeResults(searchResult *m, int solutionCount, UINT_PTR *solns);
 int validateSearchResult(searchResult *m);
 void printShortResults(HANDLE hPipe,searchResult *m);
+
+int cs_search_filter(lua_State *L);
+int cs_search_new(lua_State *L);
+int cs_search_free(lua_State *L);
+int cs_search_fetch(lua_State *L);
+
+void printShortResults(HANDLE hPipe,lua_State *L,searchResult *m);
