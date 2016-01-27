@@ -363,6 +363,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
 
 		VirtualProtect(mi.lpBaseOfDll,1,PAGE_READWRITE,&oldProtect);
 		imgDosHdr->e_magic = 0;
+		imgDosHdr->e_lfanew = 0;
 		VirtualProtect(mi.lpBaseOfDll,1,oldProtect,&oldProtect);
 
 		VirtualProtect((LPVOID )(imgNtHdrs),1,PAGE_READWRITE,&oldProtect);
