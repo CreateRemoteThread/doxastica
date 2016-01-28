@@ -372,6 +372,10 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
 
 		OutputDebugString(" - creating server thread\n");
 		CreateThread(NULL,0,IPCServerThread,NULL,0,&threadId);
+
+		// void hook(UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress)
+
+		hook((UINT_PTR )GetProcAddress(LoadLibrary("ws2_32"),"send"),(UINT_PTR )&newSend,(UINT_PTR *)&oldSend);
 		
 		return TRUE;
       }
