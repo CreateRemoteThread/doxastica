@@ -23,6 +23,7 @@
 *.dylib
 
 # Executables
+*.exe
 *.out
 *.app
 *.i*86
@@ -35,3 +36,5 @@
 
 # no notes files
 *.txt
+
+!binz/
