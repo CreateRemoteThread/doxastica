@@ -9,8 +9,7 @@ static int cs_memread(lua_State *L);
 static int cs_disassemble(lua_State *L);
 int readfilter(unsigned int code, struct _EXCEPTION_POINTERS *ep);
 
-typedef DWORD (WINAPI * _MessageBoxA) (DWORD, LPCVOID, LPCVOID, DWORD);
-typedef DWORD (WINAPI * _send) (DWORD, char *, DWORD, DWORD);
+
 void hook(UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress);
 UINT_PTR searchForShortCave(UINT_PTR addressFrom,int minLength);
 DWORD WINAPI IPCServerThread( LPVOID lpParam );

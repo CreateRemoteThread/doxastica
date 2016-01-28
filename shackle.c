@@ -9,6 +9,8 @@
 #include <signal.h>
 #include <imagehlp.h>
 #include <ctype.h>
+#include <winsock.h>
+// #include <winsock2.h>
 #include "shackle.h"
 #include "search.h"
 #include "ptrscan.h"
@@ -46,9 +48,13 @@ void printShortResults(HANDLE hPipe,lua_State *L,searchResult *m);
 
 int init = 0;
 
+typedef DWORD (WINAPI * _MessageBoxA) (DWORD, LPCVOID, LPCVOID, DWORD);
+typedef DWORD (WINAPI * _send) (DWORD, char *, DWORD, DWORD);
+typedef DWORD (WINAPI * _WSASend) (SOCKET, UINT_PTR, DWORD, UINT_PTR, DWORD, UINT_PTR, UINT_PTR);
+
 _MessageBoxA oldMessageBox = NULL;
 _send oldSend = NULL;
-_send oldRecv = NULL;
+_WSASend oldWSASend = NULL;
 
 char *globalHotkeyArray[256];
 int globalSleepTime = 500;
@@ -96,6 +102,12 @@ untouched user32!MessageBoxA:
 #define CL_ON_64BIT_IS_A_PIECE_OF_SHIT 1
 
 #define LUA_MAXINPUT		512
+
+int WINAPI newWSASend(SOCKET s, UINT_PTR lpBuffers, DWORD dwBufferCount, UINT_PTR lpBytesSent, DWORD dwFlags, UINT_PTR lpOverlapped, UINT_PTR lpCompletionRoutine)
+{
+	OutputDebugString("lol");
+	return oldWSASend(s,lpBuffers,dwBufferCount,lpBytesSent,dwFlags,lpOverlapped,lpCompletionRoutine);
+}
 
 unsigned long WINAPI newMessageBox(unsigned long hwnd,char *msg,char *title,unsigned long flags)
 {
@@ -222,7 +234,8 @@ void iathook(UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress)
 	sprintf(mbuf," [IAT] nameChain = %x, funcChain = %x\n",nameChain,funcChain);
 	OutputDebugString(mbuf);
 
-	while(funcChain[i] != addressFrom)
+	// only works with loaded functions
+	while(funcChain[i] != addressFrom && funcChain[i] != 0)
 	{
 		i++;
 	}
@@ -447,7 +460,9 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
 
 		// hook((UINT_PTR )GetProcAddress(LoadLibrary("user32"),"MessageBoxA"),(UINT_PTR )&newMessageBox,(UINT_PTR *)&oldMessageBox);
 
-		iathook((UINT_PTR )GetProcAddress(LoadLibrary("ws2_32"),"send"),(UINT_PTR )&newSend,(UINT_PTR *)&oldSend);
+		// iathook((UINT_PTR )GetProcAddress(LoadLibrary("ws2_32"),"WSASend"),(UINT_PTR )&newWSASend,(UINT_PTR *)&oldWSASend);
+
+		// iathook((UINT_PTR )GetProcAddress(LoadLibrary("ws2_32"),"send"),(UINT_PTR )&newSend,(UINT_PTR *)&oldSend);
 		
 		return TRUE;
       }
