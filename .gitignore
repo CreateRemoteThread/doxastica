@@ -12,7 +12,6 @@
 *.pch
 
 # Libraries
-*.lib
 *.a
 *.la
 *.lo
@@ -24,14 +23,12 @@
 *.dylib
 
 # Executables
-*.exe
 *.out
 *.app
 *.i*86
 *.x86_64
 *.hex
 *.exp
-*.dll
 *.pdb
 *.obj
 *.manifest
