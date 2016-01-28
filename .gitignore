@@ -37,4 +37,4 @@
 # no notes files
 *.txt
 
-!binz/
+!binz/*
