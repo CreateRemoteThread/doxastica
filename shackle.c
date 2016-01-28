@@ -98,21 +98,14 @@ untouched user32!MessageBoxA:
 
 unsigned long WINAPI newMessageBox(unsigned long hwnd,char *msg,char *title,unsigned long flags)
 {
-	/*
-	#ifdef CL_ON_64BIT_IS_A_PIECE_OF_SHIT
-		char *p = (char *)0;
-		p[0] = 'a';
-	#endif
-	*/
 	oldMessageBox(hwnd,"NERDZ",title,flags);
 	return 0;
 }
 
+// doesn't give me the same calling convention =)
 unsigned long newSend(unsigned long socket, char *buf, unsigned long len, unsigned long flags)
 {
-	int i = oldSend(socket, buf, len, flags);
-	OutputDebugString("send\n");
-	return i;
+	return oldSend(socket, buf, len, flags);
 }
 
 unsigned long newRecv(unsigned long socket, char *buf, unsigned long len, unsigned long flags)
@@ -143,7 +136,7 @@ UINT_PTR searchForShortCave(UINT_PTR addressFrom,int minLength)
 			OutputDebugString("\n");
 		}
 		*/
-		OutputDebugString(mbuf);
+		// OutputDebugString(mbuf);
 		if ((unsigned char )p[i] == (unsigned char )'\xC3')
 		{
 			
@@ -152,9 +145,11 @@ UINT_PTR searchForShortCave(UINT_PTR addressFrom,int minLength)
 			{
 				if ( (p[i+n] != (unsigned char )'\xCC' ) && (p[i+n] != (unsigned char )'\x00') && (p[i+n] != (unsigned char )'\x90') )
 				{
+					/*
 					memset(mbuf,0,1024);
 					sprintf(mbuf," exiting search for loop at %x, [%02x]\n" , (UINT_PTR )(p + i + n), (unsigned char )(p[i+n]));
 					OutputDebugString(mbuf);
+					*/
 					foundAddress = 0;
 				}
 			}
@@ -166,6 +161,86 @@ UINT_PTR searchForShortCave(UINT_PTR addressFrom,int minLength)
 		}
 	}
 	return foundAddress;
+}
+
+void iathook(char *moduleName,UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress)
+{
+	HMODULE hMods[1024];
+	DWORD cbNeeded = 0;
+	MODULEINFO modInfo;
+
+	char mbuf[1024];
+
+	UINT_PTR lpBase = 0;
+
+	HANDLE hProcess = GetCurrentProcess();
+
+	EnumProcessModules( GetCurrentProcess(), hMods, sizeof(hMods),&cbNeeded);
+
+	int i = 0;
+	for (; i < (cbNeeded / sizeof(HMODULE)); i++)
+	{
+		char szModName[1024];
+		if(GetModuleFileNameEx( hProcess,hMods[i],szModName,sizeof(szModName) / sizeof(char)) )
+		{
+			if(strcmp(shortName(szModName),moduleName) == 0)
+			{
+				GetModuleInformation(hProcess,hMods[i],&modInfo,sizeof(modInfo));
+				lpBase = (UINT_PTR )modInfo.lpBaseOfDll;
+				break;
+			}
+		}
+	}
+	
+	sprintf(mbuf," [IAT] found base at 0x%x\n",lpBase);
+	OutputDebugString(mbuf);
+
+	IMAGE_DOS_HEADER *imgDosHdr = (IMAGE_DOS_HEADER *)lpBase;
+	IMAGE_NT_HEADERS *imgNtHdrs = (IMAGE_NT_HEADERS *)(lpBase + imgDosHdr->e_lfanew);
+
+	if(imgDosHdr->e_magic != 0x5a4d)
+	{
+		OutputDebugString(" [IAT] e_magic fucked, abort, abort\n");
+		return;
+	}
+
+	if(imgNtHdrs->Signature  != 0x4550)
+	{
+		OutputDebugString(" [IAT] imgNtHdrs->Signature fucked, abort, abort\n");
+		return;
+	}
+
+	OutputDebugString(" [IAT] signature checks ok, trying to find import table...\n");
+
+	IMAGE_DATA_DIRECTORY *pDataDir = ((IMAGE_DATA_DIRECTORY *)(imgNtHdrs->OptionalHeader.DataDirectory + IMAGE_DIRECTORY_ENTRY_IMPORT));
+	IMAGE_IMPORT_DESCRIPTOR *pImportDir = (IMAGE_IMPORT_DESCRIPTOR *)(lpBase + pDataDir->VirtualAddress);
+
+	OutputDebugString(" [IAT] got data dir + import dir\n");
+
+	IMAGE_THUNK_DATA **nameChain = (IMAGE_THUNK_DATA **)(lpBase + pImportDir->Characteristics);
+	UINT_PTR *funcChain = (UINT_PTR *)(lpBase + pImportDir->FirstThunk);
+
+	sprintf(mbuf," [IAT] nameChain = %x, funcChain = %x\n",nameChain,funcChain);
+	OutputDebugString(mbuf);
+
+	while(funcChain[i] != addressFrom)
+	{
+		i++;
+	}
+
+	sprintf(mbuf," [IAT] got it - 0x%x\n",&funcChain[i]);
+	OutputDebugString(mbuf);
+
+	saveAddress[0] = funcChain[i];
+
+	DWORD oldProtect;
+	VirtualProtect(&funcChain[i],sizeof(UINT_PTR),PAGE_READWRITE,&oldProtect);
+
+	funcChain[i] = addressTo;
+
+	VirtualProtect(&funcChain[i],sizeof(UINT_PTR),oldProtect,&oldProtect);
+
+	return;
 }
 
 void hook(UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress)
@@ -342,7 +417,6 @@ void hook(UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress)
 	return;
 }
 
-
 DWORD threadId = 0;
 DWORD threadId_hotkeys = 0;
 
@@ -352,11 +426,11 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
     if(fdwReason == DLL_PROCESS_ATTACH && init == 0)
       {
         init = 1;
+
 		OutputDebugString(" - shackle dll loaded, deploying stealth\n");
 		GetModuleInformation(GetCurrentProcess(),hinstDLL,&mi,sizeof(mi));
 
 		DWORD oldProtect = 0;
-
 
 		IMAGE_DOS_HEADER *imgDosHdr = (IMAGE_DOS_HEADER *)mi.lpBaseOfDll;
 		IMAGE_NT_HEADERS *imgNtHdrs = (IMAGE_NT_HEADERS *)(imgDosHdr + imgDosHdr->e_lfanew);
@@ -369,13 +443,12 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
 		VirtualProtect((LPVOID )(imgNtHdrs),1,PAGE_READWRITE,&oldProtect);
 		imgNtHdrs->Signature = 0;
 		VirtualProtect((LPVOID )(imgNtHdrs),1,oldProtect,&oldProtect);
-
 		OutputDebugString(" - creating server thread\n");
 		CreateThread(NULL,0,IPCServerThread,NULL,0,&threadId);
 
-		// void hook(UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress)
+		// hook((UINT_PTR )GetProcAddress(LoadLibrary("user32"),"MessageBoxA"),(UINT_PTR )&newMessageBox,(UINT_PTR *)&oldMessageBox);
 
-		hook((UINT_PTR )GetProcAddress(LoadLibrary("ws2_32"),"send"),(UINT_PTR )&newSend,(UINT_PTR *)&oldSend);
+		iathook("putty.exe",(UINT_PTR )GetProcAddress(LoadLibrary("ws2_32"),"send"),(UINT_PTR )&newSend,(UINT_PTR *)&oldSend);
 		
 		return TRUE;
       }
