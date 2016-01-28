@@ -15,6 +15,8 @@
 #include "pcontrol.h"
 #include "xedparse\src\XEDParse.h"
 
+#define WIN32_LEAN_AND_MEAN
+
 #define EOFMARK		"<eof>"
 #define marklen		(sizeof(EOFMARK)/sizeof(char) - 1)
 
@@ -91,7 +93,6 @@ untouched user32!MessageBoxA:
 00000000`7791134b 44391dea0d0200  cmp     dword ptr [USER32!gapfnScSendMessage+0x927c (00000000`7793213c)],r11d
 */
 
-
 #define CL_ON_64BIT_IS_A_PIECE_OF_SHIT 1
 
 #define LUA_MAXINPUT		512
@@ -102,16 +103,14 @@ unsigned long WINAPI newMessageBox(unsigned long hwnd,char *msg,char *title,unsi
 	return 0;
 }
 
-// doesn't give me the same calling convention =)
-unsigned long newSend(unsigned long socket, char *buf, unsigned long len, unsigned long flags)
-{
-	return oldSend(socket, buf, len, flags);
-}
+extern "C" __declspec(dllexport) unsigned long __stdcall newSend(unsigned long socket, char *buf, unsigned long len, unsigned long flags);
 
-unsigned long newRecv(unsigned long socket, char *buf, unsigned long len, unsigned long flags)
+// doesn't give me the same calling convention =)
+extern "C" unsigned long __stdcall newSend(unsigned long socket, char *buf, unsigned long len, unsigned long flags)
 {
-	int i = oldRecv(socket,buf,len,flags);
-	OutputDebugString("recv\n");
+	// never gets called, why?
+	OutputDebugString("lol1\n");
+	int i = oldSend(socket, buf, len, flags);
 	return i;
 }
 
@@ -163,7 +162,7 @@ UINT_PTR searchForShortCave(UINT_PTR addressFrom,int minLength)
 	return foundAddress;
 }
 
-void iathook(char *moduleName,UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress)
+void iathook(UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress)
 {
 	HMODULE hMods[1024];
 	DWORD cbNeeded = 0;
@@ -183,7 +182,7 @@ void iathook(char *moduleName,UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR
 		char szModName[1024];
 		if(GetModuleFileNameEx( hProcess,hMods[i],szModName,sizeof(szModName) / sizeof(char)) )
 		{
-			if(strcmp(shortName(szModName),moduleName) == 0)
+			if(strstr(shortName(szModName),"exe") != NULL)
 			{
 				GetModuleInformation(hProcess,hMods[i],&modInfo,sizeof(modInfo));
 				lpBase = (UINT_PTR )modInfo.lpBaseOfDll;
@@ -448,7 +447,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
 
 		// hook((UINT_PTR )GetProcAddress(LoadLibrary("user32"),"MessageBoxA"),(UINT_PTR )&newMessageBox,(UINT_PTR *)&oldMessageBox);
 
-		iathook("putty.exe",(UINT_PTR )GetProcAddress(LoadLibrary("ws2_32"),"send"),(UINT_PTR )&newSend,(UINT_PTR *)&oldSend);
+		iathook((UINT_PTR )GetProcAddress(LoadLibrary("ws2_32"),"send"),(UINT_PTR )&newSend,(UINT_PTR *)&oldSend);
 		
 		return TRUE;
       }
