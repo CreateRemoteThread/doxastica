@@ -23,6 +23,7 @@
 *.dylib
 
 # Executables
+*.lib
 *.exe
 *.out
 *.app
@@ -38,3 +39,4 @@
 *.txt
 
 !binz/*
+!xedparse/xed2/lib/*
