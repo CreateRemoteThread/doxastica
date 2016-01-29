@@ -1,0 +1,1 @@
+int cs_search_vtable(lua_State *L);

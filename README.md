@@ -29,7 +29,7 @@ thing).
 - compared to a debugger, you're inside a process' memory. this means you are
 fast as shit for certain operations (but crippled in others).
 
-## tutorial: 500 in unreal tournament 99
+## tutorial: 500 hp in unreal tournament 99
 
 the goal of our quickstart tutorial will be the hack the unral tournament goty
 edition from steam (http://store.steampowered.com/app/13240/). we will try to

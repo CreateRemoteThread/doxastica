@@ -919,6 +919,7 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	lua_register(luaState,"search_new",cs_search_new);
 	lua_register(luaState,"search_free",cs_search_free);
 	lua_register(luaState,"search_fetch",cs_search_fetch);
+	// lua_register(luaState,"search_vtable",cs_search_vtable);
 	lua_register(luaState,"eb",cs_eb);
 	lua_register(luaState,"ew",cs_ew);
 	lua_register(luaState,"ed",cs_ed);

@@ -159,7 +159,8 @@ void parseArgs(int argc, char **argv)
 		else if(strcmp(argv[i],"-inject") == 0 && i + 1 < argc && opMode == OPMODE_DEFAULT)
 		{
 			opMode = OPMODE_INJECT;
-			if(sscanf(argv[i+1],"%x",&globalInject) != 1)
+			globalInject = (int )strtol(argv[i+1],NULL,0);
+			if( globalInject == 0)
 			{
 				printf(" [FAIL] could not parse process id \"%s\", ignoring subsequent arguments\n",argv[i+1]);
 				opMode = OPMODE_DEFAULT;
