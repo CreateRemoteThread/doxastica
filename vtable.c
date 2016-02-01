@@ -19,17 +19,21 @@ int cs_search_vtable(lua_State *L)
 	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
 	lua_pop(L,1);
 
-	// must not be in the current page.
+	char mbuf[1024];
+
 	HANDLE currentProcess = GetCurrentProcess();
 
 	if (lua_gettop(L) == 1)
 	{
 		UINT_PTR addrFrom = (UINT_PTR )lua_tonumber(L,1);
-		addrFrom &= 
 		__try{
 			while(true)
 			{
+				if(isExecutableRegion(addrFrom))
+				{
 
+				}
+				addrFrom -= 4;
 			}
 		}
 		__except(true)
@@ -37,6 +41,7 @@ int cs_search_vtable(lua_State *L)
 			outString(hPipe," [ERR] cant read here, check memory protection\n");
 			return 0;
 		}
+		// we have a vtable
 	}
 	else
 	{
