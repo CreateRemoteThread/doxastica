@@ -25,21 +25,59 @@ int cs_search_vtable(lua_State *L)
 
 	if (lua_gettop(L) == 1)
 	{
-		UINT_PTR addrFrom = (UINT_PTR )lua_tonumber(L,1);
+		#if ARCHI_64
+			UINT_PTR *addrFrom = (UINT_PTR *)((int )lua_tonumber(L,1) &  0xFFFFFFFFFFFFFF00);
+		#else
+			UINT_PTR *addrFrom = (UINT_PTR *)((int )lua_tonumber(L,1) & 0xFFFFFF00);
+		#endif
+		sprintf(mbuf," [NFO] searching vtable backward from %x\n",addrFrom);
+		outString(hPipe,mbuf);
+		MEMORY_BASIC_INFORMATION mbi;
+
+		UINT_PTR lastAllocation = 0;
+		size_t lastSize = 0;
+		DWORD lastProtect = 0;
+		DWORD protectMode = 0;
+
 		__try{
 			while(true)
 			{
-				if(isExecutableRegion(addrFrom))
+				int currentExec = 0;
+				// check until you get an executable vtable.
+				UINT_PTR fPtr = (UINT_PTR )(addrFrom[0]);
+				if(fPtr >= lastAllocation && fPtr <= (lastAllocation + (UINT_PTR )lastSize - sizeof(fPtr)))
 				{
-
 				}
-				addrFrom -= 4;
+				else
+				{
+					VirtualQuery((LPCVOID )fPtr,&mbi,sizeof(mbi));
+					lastAllocation = (UINT_PTR )mbi.AllocationBase;
+					lastSize = mbi.RegionSize;
+					lastProtect = mbi.AllocationProtect;
+				}
+
+				if(lastProtect == PAGE_EXECUTE || lastProtect == PAGE_EXECUTE_READ || lastProtect == PAGE_EXECUTE_READWRITE || lastProtect == PAGE_EXECUTE_WRITECOPY)
+				{
+					currentExec = 1;
+				}
+
+				addrFrom = (UINT_PTR *)(char *)(addrFrom - 4);
 			}
 		}
 		__except(true)
 		{
-			outString(hPipe," [ERR] cant read here, check memory protection\n");
-			return 0;
+			if (protectMode == 1)
+			{
+				sprintf(mbuf," [NFO] vtable search breaking on unreadable page at %x\n",(UINT_PTR )(addrFrom + 4));
+				outString(hPipe,mbuf);
+				lua_pushnumber(L,(UINT_PTR )(addrFrom + 4));
+				return 1;
+			}
+			else
+			{
+				outString(hPipe," [ERR] cant read here, check memory protection / no vtable found\n");
+				return 0;
+			}
 		}
 		// we have a vtable
 	}
