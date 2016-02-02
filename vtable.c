@@ -39,29 +39,49 @@ int cs_search_vtable(lua_State *L)
 		DWORD lastProtect = 0;
 		DWORD protectMode = 0;
 
+		int currentExec = 0;
+		int skipPtr = 0;
+
+		// assume that we're always here.
+
 		__try{
 			while(true)
 			{
-				int currentExec = 0;
-				// check until you get an executable vtable.
 				UINT_PTR fPtr = (UINT_PTR )(addrFrom[0]);
 				if(fPtr >= lastAllocation && fPtr <= (lastAllocation + (UINT_PTR )lastSize - sizeof(fPtr)))
 				{
+					OutputDebugString("same page\n");
 				}
 				else
 				{
-					VirtualQuery((LPCVOID )fPtr,&mbi,sizeof(mbi));
+					OutputDebugString("newquery\n");
+					int retval = VirtualQuery((LPCVOID )fPtr,&mbi,sizeof(mbi));
+					if(retval == 0)
+					{
+						sprintf(mbuf," [NFO] virtualquery breaking at %x\n",(UINT_PTR )(addrFrom + 4));
+						outString(hPipe,mbuf);
+						return 0;
+					}
 					lastAllocation = (UINT_PTR )mbi.AllocationBase;
 					lastSize = mbi.RegionSize;
 					lastProtect = mbi.AllocationProtect;
 				}
 
-				if(lastProtect == PAGE_EXECUTE || lastProtect == PAGE_EXECUTE_READ || lastProtect == PAGE_EXECUTE_READWRITE || lastProtect == PAGE_EXECUTE_WRITECOPY)
+				if(lastProtect & PAGE_EXECUTE || lastProtect & PAGE_EXECUTE_READ || lastProtect & PAGE_EXECUTE_READWRITE || lastProtect & PAGE_EXECUTE_WRITECOPY)
 				{
 					currentExec = 1;
+					sprintf(mbuf," [NFO] found executable ptr: %x\n",fPtr);
+					outString(hPipe,mbuf);
+				}
+				else if(currentExec == 1 && skipPtr == 0)
+				{
+					sprintf(mbuf," [NFO] vtable search ending, hit non-executable section again at %x\n",(UINT_PTR )(addrFrom + 4));
+					outString(hPipe,mbuf);
+					lua_pushnumber(L,(UINT_PTR )(addrFrom + 4));
+					return 1;
 				}
 
-				addrFrom = (UINT_PTR *)(char *)(addrFrom - 4);
+				addrFrom = (UINT_PTR *)((char *)(addrFrom - 4));
 			}
 		}
 		__except(true)
