@@ -1482,6 +1482,7 @@ static int cs_dw(lua_State *L)
 	return 0;
 }
 
+// fix this shit.
 static int cs_dd(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
@@ -2275,7 +2276,6 @@ static int cs_finish_who_writes_to(lua_State *L)
 	unprotectLocation();
 	return 0;
 }
-
 
 UINT_PTR watchPageStart = 0;
 UINT_PTR watchPageEnd = 0;

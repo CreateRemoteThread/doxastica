@@ -12,6 +12,16 @@ DWORD globalThreadArray[1024];
 int totalThreads = 0;
 int threadIdHead = 0;
 
+CRITICAL_SECTION CriticalSection;
+
+// only saves 1024 locations. if you have more than 1024
+// locations writing to a given memory address, you're
+// probably writing too much.
+
+UINT_PTR globalSolutions[1024];
+int globalSolutions_writeCount[1024];
+int globalSolutions_isOverflow = 1;
+
 int cs_resumethreads(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
@@ -257,6 +267,9 @@ int cs_m_who_writes_to(lua_State *L)
 	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 
+	char mbuf[1024];
+	memset(mbuf,0,1024);
+
 	UINT_PTR protectAddr = 0;
 
 	if (lua_gettop(L) == 1)
@@ -268,8 +281,6 @@ int cs_m_who_writes_to(lua_State *L)
 	}
 	else
 	{
-		char mbuf[1024];
-		memset(mbuf,0,1024);
 		sprintf(mbuf," [ERR] m_who_writes_to() needs an address\n");
 		outString(hPipe,mbuf);
 	}
@@ -296,6 +307,12 @@ int cs_m_who_writes_to(lua_State *L)
 
 	totalThreads = 0;
 
+	InitializeCriticalSectionAndSpinCount(&CriticalSection,0x400);
+
+	memset(globalSolutions,0,sizeof(UINT_PTR) * 1024);
+	memset(globalSolutions_writeCount,0,sizeof(int) * 1024);
+	globalSolutions_isOverflow = 0;
+
 	AddVectoredExceptionHandler(1,veh_m);
 
 	do
@@ -314,6 +331,9 @@ int cs_m_who_writes_to(lua_State *L)
 	while (Thread32Next(hThreadSnap,&te32));
 	CloseHandle(hThreadSnap);
 
+	sprintf(mbuf," [NFO] protected %d threads\n",totalThreads);
+	outString(hPipe,mbuf);
+
 	lua_pushinteger(L,totalThreads);
 	return 1;
 }
@@ -324,7 +344,10 @@ int cs_m_finish_who_writes_to(lua_State *L)
 	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 
+	char mbuf[1024];
+
 	RemoveVectoredExceptionHandler(veh_m);
+	DeleteCriticalSection(&CriticalSection);
 
 	DWORD ownProcess = GetCurrentProcessId();
 	DWORD ownThread = GetCurrentThreadId();
@@ -363,6 +386,31 @@ int cs_m_finish_who_writes_to(lua_State *L)
 	}
 	while (Thread32Next(hThreadSnap,&te32));
 	CloseHandle(hThreadSnap);
+
+	int i =0;
+
+	if(globalSolutions_isOverflow)
+	{
+		outString(hPipe," [NFO] overflow flag set = over 1024 access violations\n");
+	}
+	else
+	{
+		for ( i = 0; i < 1024 ; i++)
+		{
+			if(globalSolutions[i] != 0)
+			{
+				sprintf(mbuf," + [ADDR:0x%x] [WRITECOUNT:%d]\n",globalSolutions[i],globalSolutions_writeCount[i]);
+				outString(hPipe,mbuf);
+			}
+			else
+			{
+				break;
+			}
+		}
+	}
+
+	sprintf(mbuf," [NFO] unprotected %d threads, %d results\n",totalThreads,i);
+	outString(hPipe,mbuf);
 
 	lua_pushinteger(L,totalThreads);
 	return 1;
@@ -407,7 +455,43 @@ void unprotectSingleThread(HANDLE hThread)
 
 LONG CALLBACK veh_m(EXCEPTION_POINTERS *ExceptionInfo)
 {
-	int i = 0;
-	MessageBoxA(0,"123","456",MB_OK);
+	int i;
+	int doneFlag = 0;
+
+	// cool story bro
+	if(ExceptionInfo->ExceptionRecord->ExceptionCode != EXCEPTION_ACCESS_VIOLATION)
+	{
+		return EXCEPTION_CONTINUE_EXECUTION;
+	}
+
+	EnterCriticalSection(&CriticalSection);
+
+	for ( i = 0; i < 1024; i++)
+	{
+		if(globalSolutions[i] == (UINT_PTR )(ExceptionInfo->ExceptionRecord->ExceptionAddress))
+		{
+			globalSolutions_writeCount[i] += 1;
+			doneFlag = 1;
+		}
+		else if(globalSolutions[i] == 0)
+		{
+			globalSolutions[i] = (UINT_PTR )(ExceptionInfo->ExceptionRecord->ExceptionAddress);
+			globalSolutions_writeCount[i] = 1;
+			doneFlag = 1;
+		}
+	}
+
+	if(!doneFlag)
+	{
+		globalSolutions_isOverflow = 1;
+	}
+
+	/*
+		memset(globalSolutions,0,sizeof(UINT_PTR) * 1024);
+		memset(globalSolutions_writeCount,0,sizeof(int) * 1024);
+		globalSolutions_isOverflow = 0;
+	*/
+
+	LeaveCriticalSection(&CriticalSection);
 	return EXCEPTION_CONTINUE_EXECUTION;
 }
