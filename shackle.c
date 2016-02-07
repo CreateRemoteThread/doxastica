@@ -832,14 +832,6 @@ static int cs_unresolve(lua_State *L)
 						return 1;
 					}
 				}
-				else
-				{
-					// no filename, don't worry about resolving.
-					/*
-					sprintf(mbuf," + %s (0x%08x)\n",shortName(szModName),hMods[i]);
-					outString(hPipe,mbuf);
-					*/
-				}
 			}
 		}
 	}
