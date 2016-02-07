@@ -20,7 +20,9 @@ CRITICAL_SECTION CriticalSection;
 
 UINT_PTR globalSolutions[1024];
 int globalSolutions_writeCount[1024];
-int globalSolutions_isOverflow = 1;
+int globalSolutions_isOverflow = 0;
+
+int vehTriggered = 0;
 
 int cs_resumethreads(lua_State *L)
 {
@@ -271,6 +273,7 @@ int cs_m_who_writes_to(lua_State *L)
 	memset(mbuf,0,1024);
 
 	UINT_PTR protectAddr = 0;
+	vehTriggered = 0;
 
 	if (lua_gettop(L) == 1)
 	{
@@ -322,7 +325,7 @@ int cs_m_who_writes_to(lua_State *L)
 		{
 			HANDLE hThread = OpenThread(THREAD_ALL_ACCESS,FALSE,te32.th32ThreadID);
 			SuspendThread(hThread);
-			protectSingleThread(hThread,1);
+			protectSingleThread(hThread,protectAddr);
 			ResumeThread(hThread);
 			CloseHandle(hThread);
 			totalThreads += 1;
@@ -409,7 +412,7 @@ int cs_m_finish_who_writes_to(lua_State *L)
 		}
 	}
 
-	sprintf(mbuf," [NFO] unprotected %d threads, %d results\n",totalThreads,i);
+	sprintf(mbuf," [NFO] unprotected %d threads, %d results [vehTriggered = %d]\n",totalThreads,i,vehTriggered);
 	outString(hPipe,mbuf);
 
 	lua_pushinteger(L,totalThreads);
@@ -458,13 +461,17 @@ LONG CALLBACK veh_m(EXCEPTION_POINTERS *ExceptionInfo)
 	int i;
 	int doneFlag = 0;
 
-	// cool story bro
-	if(ExceptionInfo->ExceptionRecord->ExceptionCode != EXCEPTION_ACCESS_VIOLATION)
+	if(ExceptionInfo->ContextRecord->Dr6 == 0)
 	{
+
 		return EXCEPTION_CONTINUE_EXECUTION;
 	}
 
+	// does this work, or do i need to roll with SetThreadContext?
+	ExceptionInfo->ContextRecord->Dr6 = 0;
+
 	EnterCriticalSection(&CriticalSection);
+	vehTriggered++;
 
 	for ( i = 0; i < 1024; i++)
 	{
@@ -481,16 +488,10 @@ LONG CALLBACK veh_m(EXCEPTION_POINTERS *ExceptionInfo)
 		}
 	}
 
-	if(!doneFlag)
+	if(doneFlag == 0)
 	{
 		globalSolutions_isOverflow = 1;
 	}
-
-	/*
-		memset(globalSolutions,0,sizeof(UINT_PTR) * 1024);
-		memset(globalSolutions_writeCount,0,sizeof(int) * 1024);
-		globalSolutions_isOverflow = 0;
-	*/
 
 	LeaveCriticalSection(&CriticalSection);
 	return EXCEPTION_CONTINUE_EXECUTION;
