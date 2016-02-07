@@ -15,7 +15,7 @@ int threadIdHead = 0;
 int cs_resumethreads(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 
 	DWORD ownProcess = GetCurrentProcessId();
@@ -54,14 +54,14 @@ int cs_resumethreads(lua_State *L)
 	while (Thread32Next(hThreadSnap,&te32));
 	CloseHandle(hThreadSnap);
 
-	lua_pushnumber(L,totalThreads);
+	lua_pushinteger(L,totalThreads);
 	return 1;
 }
 
 int cs_stopthreads(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 
 	DWORD ownProcess = GetCurrentProcessId();
@@ -101,14 +101,14 @@ int cs_stopthreads(lua_State *L)
 	while (Thread32Next(hThreadSnap,&te32));
 	CloseHandle(hThreadSnap);
 
-	lua_pushnumber(L,totalThreads);
+	lua_pushinteger(L,totalThreads);
 	return 1;
 }
 
 int cs_listthreads(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 
 	cProcInfo i_Proc;
@@ -180,8 +180,8 @@ int cs_listthreads(lua_State *L)
 			}
 
 			outString(hPipe,mbuf);
-			lua_pushnumber(L,totalThreads);
-			lua_pushnumber(L,te32.th32ThreadID);
+			lua_pushinteger(L,totalThreads);
+			lua_pushinteger(L,te32.th32ThreadID);
 			lua_settable(L,-3);
 			totalThreads += 1;
 		}
@@ -254,7 +254,7 @@ int __checkThread(DWORD threadId)
 int cs_m_who_writes_to(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 
 	UINT_PTR protectAddr = 0;
@@ -263,7 +263,7 @@ int cs_m_who_writes_to(lua_State *L)
 	{
 		if(lua_isnumber(L,1))
 		{
-			protectAddr = lua_tonumber(L,1);
+			protectAddr = lua_tointeger(L,1);
 		}
 	}
 	else
@@ -314,14 +314,14 @@ int cs_m_who_writes_to(lua_State *L)
 	while (Thread32Next(hThreadSnap,&te32));
 	CloseHandle(hThreadSnap);
 
-	lua_pushnumber(L,totalThreads);
+	lua_pushinteger(L,totalThreads);
 	return 1;
 }
 
 int cs_m_finish_who_writes_to(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 
 	RemoveVectoredExceptionHandler(veh_m);
@@ -364,7 +364,7 @@ int cs_m_finish_who_writes_to(lua_State *L)
 	while (Thread32Next(hThreadSnap,&te32));
 	CloseHandle(hThreadSnap);
 
-	lua_pushnumber(L,totalThreads);
+	lua_pushinteger(L,totalThreads);
 	return 1;
 }
 

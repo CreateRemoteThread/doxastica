@@ -284,7 +284,7 @@ int cs_search_fetch(lua_State *L)
 			return 0;
 		}
 
-		lua_pushnumber(L,oldResults->arraySolutions[searchIndex]);
+		lua_pushinteger(L,oldResults->arraySolutions[searchIndex]);
 		return 1;
 	}
 	else
@@ -363,8 +363,20 @@ int cs_search_filter(lua_State *L)
 				return 0;
 				break;
 		}
+
 		printShortResults(hPipe,L,oldResults);
-		lua_pushnumber(L,newResults);
+
+		// need to force this to integer
+		lua_newtable(L);
+
+		int i = 0;
+		for( ; i < oldResults->numSolutions; i++)
+		{
+			lua_pushinteger(L,i);
+			lua_pushinteger(L,oldResults->arraySolutions[i]);
+			lua_settable(L,-3);
+		}
+
 		return 1;
 	}
 	else

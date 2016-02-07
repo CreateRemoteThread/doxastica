@@ -16,7 +16,7 @@
 int cs_search_vtable(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 
 	char mbuf[1024];
@@ -26,9 +26,9 @@ int cs_search_vtable(lua_State *L)
 	if (lua_gettop(L) == 1)
 	{
 		#if ARCHI_64
-			UINT_PTR *addrFrom = (UINT_PTR *)((int )lua_tonumber(L,1) &  0xFFFFFFFFFFFFFF00);
+			UINT_PTR *addrFrom = (UINT_PTR *)((int )lua_tointeger(L,1) &  0xFFFFFFFFFFFFFF00);
 		#else
-			UINT_PTR *addrFrom = (UINT_PTR *)((int )lua_tonumber(L,1) & 0xFFFFFF00);
+			UINT_PTR *addrFrom = (UINT_PTR *)((int )lua_tointeger(L,1) & 0xFFFFFF00);
 		#endif
 		sprintf(mbuf," [NFO] searching vtable backward from %x\n",addrFrom);
 		outString(hPipe,mbuf);
@@ -77,7 +77,7 @@ int cs_search_vtable(lua_State *L)
 				{
 					sprintf(mbuf," [NFO] vtable search ending, hit non-executable section again at %x\n",(UINT_PTR )(addrFrom + 4));
 					outString(hPipe,mbuf);
-					lua_pushnumber(L,(UINT_PTR )(addrFrom + 4));
+					lua_pushinteger(L,(UINT_PTR )(addrFrom + 4));
 					return 1;
 				}
 
@@ -90,7 +90,7 @@ int cs_search_vtable(lua_State *L)
 			{
 				sprintf(mbuf," [NFO] vtable search breaking on unreadable page at %x\n",(UINT_PTR )(addrFrom + 4));
 				outString(hPipe,mbuf);
-				lua_pushnumber(L,(UINT_PTR )(addrFrom + 4));
+				lua_pushinteger(L,(UINT_PTR )(addrFrom + 4));
 				return 1;
 			}
 			else

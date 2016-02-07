@@ -661,7 +661,7 @@ static int loadline (lua_State *L, HANDLE hPipe, int *exitToLoop) {
 static int cs_print(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 	DWORD cbWritten = 0;
 
@@ -691,7 +691,7 @@ static int cs_print(lua_State *L)
 static int cs_run(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 
 	DWORD threadId_shellcodeLoader = 0;
@@ -702,7 +702,7 @@ static int cs_run(lua_State *L)
 	{
 		if(lua_isnumber(L,1))
 		{
-			UINT_PTR runPtr = (UINT_PTR )lua_tonumber(L,1);
+			UINT_PTR runPtr = (UINT_PTR )lua_tointeger(L,1);
 			sprintf(mbuf," [NFO] running at %0x\n",runPtr);
 			outString(hPipe,mbuf);
 			CreateThread(NULL,0,(LPTHREAD_START_ROUTINE )shellcodeLoader,(LPVOID )runPtr,0,&threadId_shellcodeLoader);
@@ -738,7 +738,7 @@ DWORD WINAPI shellcodeLoader(LPVOID param)
 static int cs_ALERT(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 	DWORD cbWritten = 0;
 
@@ -753,7 +753,7 @@ static int cs_ALERT(lua_State *L)
 static int test_lua(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 
 	char *pchReply = "TEST_LUA\0";
@@ -776,7 +776,7 @@ static int test_lua(lua_State *L)
 	}
 
 	OutputDebugString(" + lua engine successfully recognizes test_lua(), good to go\n");
-	// lua_pushnumber(L,123);
+	// lua_pushinteger(L,123);
 	return 0;
 }
 
@@ -787,14 +787,14 @@ static int test_lua(lua_State *L)
 static int cs_unresolve(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 
 	UINT_PTR address = 0;
 
 	if (lua_gettop(L) == 1)
 	{
-		address = (UINT_PTR)lua_tonumber( L, -1 );
+		address = (UINT_PTR)lua_tointeger( L, -1 );
 	}
 	else
 	{
@@ -847,7 +847,7 @@ static int cs_unresolve(lua_State *L)
 static int cs_resolve(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 
 	
@@ -926,7 +926,7 @@ static int cs_resolve(lua_State *L)
 		base += atol(offset);
 	}
 
-	lua_pushnumber(L,base);
+	lua_pushinteger(L,base);
 	return 1;
 }
 
@@ -1019,6 +1019,7 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	luaL_dostring(luaState,"PAGE_NOCACHE = 0x200");
 	luaL_dostring(luaState,"PAGE_WRITECOMBINE = 0x400");
 	luaL_dostring(luaState,"SEARCH_DWORD = 4");
+	luaL_dostring(luaState,"SEARCH_PATTERN = 8");
 	luaL_dostring(luaState,"SEARCH_WORD = 2");
 	luaL_dostring(luaState,"SEARCH_BYTE = 1");
 
@@ -1072,13 +1073,13 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	HANDLE hProcess = (HANDLE )GetCurrentProcess();
 	DWORD pid = (DWORD )GetCurrentProcessId();
 
-	lua_pushnumber(luaState,(UINT_PTR )hPipe);
+	lua_pushinteger(luaState,(UINT_PTR )hPipe);
 	lua_setglobal(luaState,"__hpipe");
 
-	lua_pushnumber(luaState,(UINT_PTR )hProcess);
+	lua_pushinteger(luaState,(UINT_PTR )hProcess);
 	lua_setglobal(luaState,"__hprocess");
 
-	lua_pushnumber(luaState,pid);
+	lua_pushinteger(luaState,pid);
 	lua_setglobal(luaState,"__pid");
 
 	sprintf(mbuf," - __hpipe = 0x%x | __hProcess = 0x%x | __pid = %d -\n",hPipe,hProcess,pid);
@@ -1243,7 +1244,7 @@ lua API (invoke via peek)
 static int cs_malloc(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 	char mbuf[1024];
 
@@ -1251,7 +1252,7 @@ static int cs_malloc(lua_State *L)
 
 	if (lua_gettop(L) == 1)
 	{
-		size = lua_tonumber(L,1);
+		size = lua_tointeger(L,1);
 	}
 	else
 	{
@@ -1265,14 +1266,14 @@ static int cs_malloc(lua_State *L)
 	sprintf(mbuf," [NFO] allocated %d bytes at 0x%x\n",size,returnvalue);
 	outString(hPipe,mbuf);
 
-	lua_pushnumber(L,returnvalue);
+	lua_pushinteger(L,returnvalue);
 	return 1;
 }
 
 static int cs_mprotect(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 
 	char *addrTo = NULL;
@@ -1281,9 +1282,9 @@ static int cs_mprotect(lua_State *L)
 
 	if (lua_gettop(L) == 3)
 	{
-		addrTo = (char *)(UINT_PTR )lua_tonumber(L,1);
-		size = lua_tonumber(L,2);
-		protectconstant = lua_tonumber(L,3);
+		addrTo = (char *)(UINT_PTR )lua_tointeger(L,1);
+		size = lua_tointeger(L,2);
+		protectconstant = lua_tointeger(L,3);
 	}
 	else
 	{
@@ -1300,8 +1301,8 @@ static int cs_mprotect(lua_State *L)
 		returnstatus = GetLastError();
 	}
 
-	lua_pushnumber(L,oldProtect);
-	lua_pushnumber(L,returnstatus);
+	lua_pushinteger(L,oldProtect);
+	lua_pushinteger(L,returnstatus);
 
 	return 2;
 }
@@ -1309,7 +1310,7 @@ static int cs_mprotect(lua_State *L)
 static int cs_memset(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 
 	char *addrTo = NULL;
@@ -1320,14 +1321,14 @@ static int cs_memset(lua_State *L)
 
 	if (lua_gettop(L) == 3)
 	{
-		addrTo = (char *)(UINT_PTR )lua_tonumber(L,1);
+		addrTo = (char *)(UINT_PTR )lua_tointeger(L,1);
 		if(lua_isstring(L,2))
 		{
 			byteToSet = (char ) ((char *)(lua_tolstring(L,2,&msize))) [0];
 		}
 		else if(lua_isnumber(L,2))
 		{
-			int byteData = lua_tonumber(L,2);
+			int byteData = lua_tointeger(L,2);
 			if (byteData > 255)
 			{
 				outString(hPipe," [ERR] can't cast this number to a byte\n");
@@ -1335,7 +1336,7 @@ static int cs_memset(lua_State *L)
 			}
 			byteToSet = (char )byteData;
 		}
-		size = lua_tonumber(L,3);
+		size = lua_tointeger(L,3);
 	}
 	else
 	{
@@ -1366,13 +1367,13 @@ static int cs_memset(lua_State *L)
 static int cs_ed(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 
 	if (lua_gettop(L) == 2)
 	{
-		DWORD *addrTo = (DWORD *)(UINT_PTR )lua_tonumber(L,1);
-		DWORD value = (DWORD )lua_tonumber(L,2);
+		DWORD *addrTo = (DWORD *)(UINT_PTR )lua_tointeger(L,1);
+		DWORD value = (DWORD )lua_tointeger(L,2);
 		__try{
 			addrTo[0] = value;
 		}
@@ -1393,13 +1394,13 @@ static int cs_ed(lua_State *L)
 static int cs_ew(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 
 	if (lua_gettop(L) == 2)
 	{
-		WORD *addrTo = (WORD *)(UINT_PTR )lua_tonumber(L,1);
-		WORD value = (WORD )lua_tonumber(L,2);
+		WORD *addrTo = (WORD *)(UINT_PTR )lua_tointeger(L,1);
+		WORD value = (WORD )lua_tointeger(L,2);
 		__try{
 			addrTo[0] = value;
 		}
@@ -1420,19 +1421,19 @@ static int cs_ew(lua_State *L)
 static int cs_db(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 
 	if (lua_gettop(L) == 1)
 	{
-		BYTE *addrTo = (BYTE *)(UINT_PTR )lua_tonumber(L,1);
+		BYTE *addrTo = (BYTE *)(UINT_PTR )lua_tointeger(L,1);
 		BYTE value = 0;
 		__try{
 			value = addrTo[0];
 			char mbuf[1024];
 			sprintf(mbuf," [0x%0x] %02x\n",(UINT_PTR )addrTo, (unsigned char )value);
 			outString(hPipe,mbuf);
-			lua_pushnumber(L,value);
+			lua_pushinteger(L,value);
 			return 1;
 		}
 		__except(true)
@@ -1452,19 +1453,19 @@ static int cs_db(lua_State *L)
 static int cs_dw(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 
 	if (lua_gettop(L) == 1)
 	{
-		WORD *addrTo = (WORD *)(UINT_PTR )lua_tonumber(L,1);
+		WORD *addrTo = (WORD *)(UINT_PTR )lua_tointeger(L,1);
 		WORD value = 0;
 		__try{
 			value = addrTo[0];
 			char mbuf[1024];
 			sprintf(mbuf," [0x%0x] %04x\n",(UINT_PTR )addrTo, value);
 			outString(hPipe,mbuf);
-			lua_pushnumber(L,value);
+			lua_pushinteger(L,value);
 			return 1;
 		}
 		__except(true)
@@ -1484,19 +1485,20 @@ static int cs_dw(lua_State *L)
 static int cs_dd(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 
 	if (lua_gettop(L) == 1)
 	{
-		DWORD *addrTo = (DWORD *)(UINT_PTR )lua_tonumber(L,1);
+		int size = 32;
+		DWORD *addrTo = (DWORD *)(UINT_PTR )lua_tointeger(L,1);
 		DWORD value = 0;
 		__try{
 			value = addrTo[0];
 			char mbuf[1024];
 			sprintf(mbuf," [0x%0x] %08x\n",(UINT_PTR )addrTo, value);
 			outString(hPipe,mbuf);
-			lua_pushnumber(L,value);
+			lua_pushinteger(L,value);
 			return 1;
 		}
 		__except(true)
@@ -1516,13 +1518,13 @@ static int cs_dd(lua_State *L)
 static int cs_eb(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 
 	if (lua_gettop(L) == 2)
 	{
-		BYTE *addrTo = (BYTE *)(UINT_PTR )lua_tonumber(L,1);
-		BYTE value = (BYTE )lua_tonumber(L,2);
+		BYTE *addrTo = (BYTE *)(UINT_PTR )lua_tointeger(L,1);
+		BYTE value = (BYTE )lua_tointeger(L,2);
 		__try{
 			addrTo[0] = value;
 		}
@@ -1543,7 +1545,7 @@ static int cs_eb(lua_State *L)
 static int cs_memcpy(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 
 	char *addrTo = NULL;
@@ -1552,7 +1554,7 @@ static int cs_memcpy(lua_State *L)
 
 	if (lua_gettop(L) == 2 || lua_gettop(L) == 3)
 	{
-		addrTo = (char *)(UINT_PTR )lua_tonumber(L,1);
+		addrTo = (char *)(UINT_PTR )lua_tointeger(L,1);
 		if(lua_isstring(L,2))
 		{
 			// data blob directly
@@ -1560,8 +1562,8 @@ static int cs_memcpy(lua_State *L)
 		}
 		else if(lua_isnumber(L,2) && lua_gettop(L) == 3)
 		{
-			addrFrom = (char *)(UINT_PTR )lua_tonumber(L,2);
-			size = lua_tonumber(L,3);
+			addrFrom = (char *)(UINT_PTR )lua_tointeger(L,2);
+			size = lua_tointeger(L,3);
 		}
 		else
 		{
@@ -1605,7 +1607,7 @@ int readfilter(unsigned int code, struct _EXCEPTION_POINTERS *ep) {
 static int cs_disassemble(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 
 	char *addrTo = NULL;
@@ -1613,12 +1615,12 @@ static int cs_disassemble(lua_State *L)
 
 	if (lua_gettop(L) == 2)
 	{
-		addrTo = (char *)(UINT_PTR )lua_tonumber(L,1);
-		size = lua_tonumber(L,2);
+		addrTo = (char *)(UINT_PTR )lua_tointeger(L,1);
+		size = lua_tointeger(L,2);
 	}
 	else if (lua_gettop(L) == 1)
 	{
-		addrTo = (char *)(UINT_PTR )lua_tonumber(L,1);
+		addrTo = (char *)(UINT_PTR )lua_tointeger(L,1);
 		size = 5;
 		outString(hPipe," [NFO] assuming you want to disassemble 5 instructions\n");
 	}
@@ -1667,7 +1669,7 @@ static int cs_disassemble(lua_State *L)
 static int cs_memread(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 
 	/*
@@ -1681,8 +1683,8 @@ static int cs_memread(lua_State *L)
 
 	if (lua_gettop(L) == 2)
 	{
-		addrTo = (char *)(UINT_PTR )lua_tonumber(L,1);
-		size = lua_tonumber(L,2);
+		addrTo = (char *)(UINT_PTR )lua_tointeger(L,1);
+		size = lua_tointeger(L,2);
 	}
 	else
 	{
@@ -1703,7 +1705,7 @@ static int cs_memread(lua_State *L)
 static int cs_hexdump(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 
 	char mbuf[1024];
@@ -1713,13 +1715,13 @@ static int cs_hexdump(lua_State *L)
 
 	if (lua_gettop(L) == 2)
 	{
-		addr = (UINT_PTR )lua_tonumber(L,1);
-		n = lua_tonumber(L,2);
+		addr = (UINT_PTR )lua_tointeger(L,1);
+		n = lua_tointeger(L,2);
 	}
 	else if(lua_gettop(L) == 1)
 	{
 		outString(hPipe," [NFO] no size supplied, defaulting to size 64\n");
-		addr = (UINT_PTR )lua_tonumber(L,1);
+		addr = (UINT_PTR )lua_tointeger(L,1);
 		n = 64;
 	}
 	else
@@ -1811,7 +1813,7 @@ int validate_asm(asmBuffer *a)
 static int cs_asm_new(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 
 	UINT_PTR startAddress = NULL;
@@ -1819,8 +1821,8 @@ static int cs_asm_new(lua_State *L)
 
 	if (lua_gettop(L) == 2)
 	{
-		startAddress = (UINT_PTR )lua_tonumber(L,1);
-		architecture =  lua_tonumber(L,2);
+		startAddress = (UINT_PTR )lua_tointeger(L,1);
+		architecture =  lua_tointeger(L,2);
 	}
 	else
 	{
@@ -1850,7 +1852,7 @@ static int cs_asm_new(lua_State *L)
 static int cs_asm_add(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 
 	asmBuffer *a = NULL;
@@ -1881,7 +1883,7 @@ static int cs_asm_add(lua_State *L)
 static int cs_asm_free(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 
 	asmBuffer *a = NULL;
@@ -1924,7 +1926,7 @@ static int cs_asm_free(lua_State *L)
 static int cs_asm_commit(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 
 	asmBuffer *a = NULL;
@@ -2004,7 +2006,7 @@ static int cs_asm_commit(lua_State *L)
 static int cs_assemble(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 
 	UINT_PTR startAddress = 0;
@@ -2013,7 +2015,7 @@ static int cs_assemble(lua_State *L)
 
 	if (lua_gettop(L) == 2)
 	{
-		startAddress = (UINT_PTR )lua_tonumber(L,1);
+		startAddress = (UINT_PTR )lua_tointeger(L,1);
 		asmData =  (char *)lua_tolstring( L, 2 ,&asmSize);
 	}
 	else
@@ -2094,14 +2096,14 @@ void printShortResults(HANDLE hPipe,lua_State *L,searchResult *m)
 	}
 	if(m->numSolutions <= 10)
 	{
-        luaL_dostring(L,"results = {}");
+        // luaL_dostring(L,"results = {}");
 		int i = 0;
 		for( ; i < m->numSolutions; i++)
 		{
 			sprintf(mbuf," [%d.] 0x%0x\n",i,m->arraySolutions[i]);
 			outString(hPipe,mbuf);
-            sprintf(mbuf,"results[%d] = 0x%0x",i,m->arraySolutions[i]);
-            luaL_dostring(L,mbuf);
+            // sprintf(mbuf,"results[%d] = 0x%0x",i,m->arraySolutions[i]);
+            // luaL_dostring(L,mbuf);
 		}
 	}
 	else
@@ -2115,7 +2117,7 @@ void printShortResults(HANDLE hPipe,lua_State *L,searchResult *m)
 static int cs_bind(lua_State *L)
 {
     lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
     char mbuf[1024];
 
@@ -2141,7 +2143,7 @@ static int cs_bind(lua_State *L)
 static int cs_unbind(lua_State *L)
 {
     lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
     char mbuf[1024];
 
@@ -2171,7 +2173,7 @@ DWORD WINAPI hotkeyThread(LPVOID param)
 	lua_State *L = (lua_State *)param;
 
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 	int i = 0;
 
@@ -2236,7 +2238,7 @@ char *shortName(char *fullName)
 static int cs_who_writes_to(lua_State *L)
 {
     lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 
     char mbuf[1024];
@@ -2248,8 +2250,8 @@ static int cs_who_writes_to(lua_State *L)
         return 0;
     }
 
-    UINT_PTR addr = (UINT_PTR )lua_tonumber(L,1);
-	int size = (int )lua_tonumber(L,2);
+    UINT_PTR addr = (UINT_PTR )lua_tointeger(L,1);
+	int size = (int )lua_tointeger(L,2);
 	protectLocation(addr,size,hPipe);
 
 	sprintf(mbuf," [NFO] who_writes_to() active. use finish_who_writes_to() to check results\n");
@@ -2451,15 +2453,15 @@ LONG CALLBACK veh(EXCEPTION_POINTERS *ExceptionInfo)
 static int cs_msgbox(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
 
 	if (lua_gettop(L) == 2)
 	{
 		if(lua_isstring(L,1) && lua_isnumber(L,2))
 		{
-			int result = MessageBox(0,lua_tostring(L,1),"shackle",lua_tonumber(L,2));
-			lua_pushnumber(L,result);
+			int result = MessageBox(0,lua_tostring(L,1),"shackle",lua_tointeger(L,2));
+			lua_pushinteger(L,result);
 			return 1;
 		}
 	}
