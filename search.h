@@ -8,7 +8,7 @@
 #define SEARCH_DWORD 4
 #define SEARCH_WORD 2
 #define SEARCH_BYTE 1
-#define SEARCH_PATTERN 8
+#define SEARCH_PATTERN 
 
 struct searchResult
 {

@@ -1758,7 +1758,14 @@ static int cs_hexdump(lua_State *L)
 			thisChar = (currentLine[i%16] = (char )*(char *)(addr + i)); // will throw an exception first, don't need everything else.
 			sprintf(mbuf,"%02x \0",(unsigned char )(thisChar));
 			outString(hPipe,mbuf);
-			currentLine[i % 16] = thisChar;
+			if(isprint(thisChar) && !isspace(thisChar))
+			{
+				currentLine[i % 16] = thisChar;
+			}
+			else
+			{
+				currentLine[i % 16] = '.';
+			}
 		}
 		__except( readfilter(GetExceptionCode(), GetExceptionInformation()) )
 		{
