@@ -10,7 +10,6 @@
 #include <imagehlp.h>
 #include <ctype.h>
 #include <winsock.h>
-// #include <winsock2.h>
 #include "shackle.h"
 #include "search.h"
 #include "ptrscan.h"
@@ -781,6 +780,77 @@ static int test_lua(lua_State *L)
 	return 0;
 }
 
+// cs_resolve(straddr) = addr
+// cs_unresolve(addr) = straddr
+// can be used for back and forward conversions
+
+static int cs_unresolve(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	lua_pop(L,1);
+
+	UINT_PTR address = 0;
+
+	if (lua_gettop(L) == 1)
+	{
+		address = (UINT_PTR)lua_tonumber( L, -1 );
+	}
+	else
+	{
+		outString(hPipe," [ERR] malloc(size) requires 1 argument\n");
+		return 0;
+	}
+
+	// walk through module list (this should be rare)
+	char mbuf[1024];
+
+	HMODULE hMods[1024];
+	DWORD cbNeeded = 0;
+	MODULEINFO modInfo;
+	HANDLE hProcess = GetCurrentProcess();
+	if( EnumProcessModules( hProcess, hMods, sizeof(hMods),&cbNeeded) )
+	{
+		int i = 0;
+		for (; i < (cbNeeded / sizeof(HMODULE)); i++)
+		{
+			char szModName[1024];
+			GetModuleInformation(hProcess,hMods[i],&modInfo,sizeof(modInfo));
+			if(GetModuleFileNameEx( hProcess,hMods[i],szModName,sizeof(szModName) / sizeof(char)) )
+			{
+				if ( GetModuleInformation(hProcess,hMods[i],&modInfo,sizeof(modInfo)) )
+				{
+					if(address == (UINT_PTR )modInfo.lpBaseOfDll)
+					{
+						lua_pushstring(L,shortName(szModName));
+						return 1;
+					}
+					else if(address > (UINT_PTR )modInfo.lpBaseOfDll && address <= (UINT_PTR )((UINT_PTR )modInfo.lpBaseOfDll + modInfo.SizeOfImage))
+					{
+						sprintf(mbuf,"%s+0x%x",shortName(szModName),(address - (UINT_PTR )modInfo.lpBaseOfDll));
+						lua_pushstring(L,mbuf);
+						return 1;
+					}
+				}
+				else
+				{
+					// no filename, don't worry about resolving.
+					/*
+					sprintf(mbuf," + %s (0x%08x)\n",shortName(szModName),hMods[i]);
+					outString(hPipe,mbuf);
+					*/
+				}
+			}
+		}
+	}
+	else
+	{
+		return 0;
+	}
+
+	return 0;
+}
+
 // try to roll with 
 static int cs_resolve(lua_State *L)
 {
@@ -788,6 +858,7 @@ static int cs_resolve(lua_State *L)
 	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
 	lua_pop(L,1);
 
+	
 	size_t l;
 	char* address = (char *)lua_tolstring( L, -1 , &l);
     lua_pop(L, 1);
@@ -916,6 +987,7 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	lua_register(luaState,"asm_commit",cs_asm_commit);
 	lua_register(luaState,"asm_free",cs_asm_free);
 	lua_register(luaState,"resolve",cs_resolve);
+	lua_register(luaState,"unresolve",cs_unresolve);
 	lua_register(luaState,"search_filter",cs_search_filter);
 	lua_register(luaState,"search_new",cs_search_new);
 	lua_register(luaState,"search_free",cs_search_free);

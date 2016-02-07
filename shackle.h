@@ -5,6 +5,7 @@ static int cs_mprotect(lua_State *L);
 static int cs_memset(lua_State *L);
 static int cs_malloc(lua_State *L);
 static int cs_resolve(lua_State *l);
+static int cs_unresolve(lua_State *l);
 static int cs_memread(lua_State *L);
 static int cs_disassemble(lua_State *L);
 int readfilter(unsigned int code, struct _EXCEPTION_POINTERS *ep);
