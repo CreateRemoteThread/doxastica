@@ -1003,6 +1003,8 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 
 	lua_register(luaState,"m_who_writes_to",cs_m_who_writes_to);
 	lua_register(luaState,"m_finish_who_writes_to",cs_m_finish_who_writes_to);
+	lua_register(luaState,"finish_m_who_writes_to",cs_m_finish_who_writes_to);
+
 
 	// mprotect constants
 	luaL_dostring(luaState,"PAGE_EXECUTE = 0x10");
@@ -1142,6 +1144,9 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 			break;
 		}
 
+		// flush.
+		lua_settop(luaState, 0);
+
 		/*
 
 		// http://stackoverflow.com/questions/20454725/how-to-replace-lua-default-error-print
@@ -1175,6 +1180,8 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 			OutputDebugString(mbuf);
 			break;
 		}
+
+		lua_settop(luaState, 0);
 	}
 
 	/*

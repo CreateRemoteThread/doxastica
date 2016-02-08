@@ -42,8 +42,6 @@ int cs_search_vtable(lua_State *L)
 		int currentExec = 0;
 		int skipPtr = 0;
 
-		// assume that we're always here.
-
 		__try{
 			while(true)
 			{
