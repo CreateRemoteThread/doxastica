@@ -20,6 +20,7 @@ CRITICAL_SECTION CriticalSection;
 
 UINT_PTR globalSolutions[1024];
 int globalSolutions_writeCount[1024];
+char *globalSolutions_bytes[1024];
 int globalSolutions_isOverflow = 0;
 
 int vehTriggered = 0;
@@ -488,6 +489,13 @@ LONG CALLBACK veh_m(EXCEPTION_POINTERS *ExceptionInfo)
 		{
 			globalSolutions[i] = (UINT_PTR )(ExceptionInfo->ExceptionRecord->ExceptionAddress);
 			globalSolutions_writeCount[i] = 1;
+			__try{
+				globalSolutions_bytes[i] = (char *)malloc(15);
+			}
+			__except{
+
+			}
+			
 			doneFlag = 1;
 			break;
 		}
