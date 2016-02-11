@@ -8,6 +8,10 @@ void __unregisterThread(DWORD threadId);
 void __closeThread(DWORD threadId);
 int __checkThread(DWORD threadId);
 
+int cs_fetch_dword(lua_State *L);
+int cs_fetch_word(lua_State *L);
+int cs_fetch_byte(lua_State *L);
+
 int cs_membreak(lua_State *L);
 
 int cs_stopthreads(lua_State *L);

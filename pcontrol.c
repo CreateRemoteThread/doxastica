@@ -25,6 +25,95 @@ int globalSolutions_isOverflow = 0;
 
 int vehTriggered = 0;
 
+// fetch_dword(12345)
+
+int cs_fetch_dword(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
+	lua_pop(L,1);
+
+	if (lua_gettop(L) == 1)
+	{
+		DWORD *addrTo = (DWORD *)(UINT_PTR )lua_tointeger(L,1);
+		DWORD value = 0;
+		__try{
+			value = addrTo[0];
+			lua_pushinteger(L,value);
+			return 1;
+		}
+		__except(true)
+		{
+			outString(hPipe," [ERR] cant read here, check memory protection\n");
+			return 0;
+		}
+	}
+	else
+	{
+		outString(hPipe," [ERR] fetch_dword(dest) requires 1 argument\n");
+		return 0;
+	}
+	return 0;
+}
+
+int cs_fetch_word(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
+	lua_pop(L,1);
+
+	if (lua_gettop(L) == 1)
+	{
+		WORD *addrTo = (WORD *)(UINT_PTR )lua_tointeger(L,1);
+		WORD value = 0;
+		__try{
+			value = addrTo[0];
+			lua_pushinteger(L,value);
+			return 1;
+		}
+		__except(true)
+		{
+			outString(hPipe," [ERR] cant read here, check memory protection\n");
+			return 0;
+		}
+	}
+	else
+	{
+		outString(hPipe," [ERR] fetch_word(dest) requires 1 argument\n");
+		return 0;
+	}
+	return 0;
+}
+
+int cs_fetch_byte(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
+	lua_pop(L,1);
+
+	if (lua_gettop(L) == 1)
+	{
+		BYTE *addrTo = (BYTE *)(UINT_PTR )lua_tointeger(L,1);
+		BYTE value = 0;
+		__try{
+			value = addrTo[0];
+			lua_pushinteger(L,value);
+			return 1;
+		}
+		__except(true)
+		{
+			outString(hPipe," [ERR] cant read here, check memory protection\n");
+			return 0;
+		}
+	}
+	else
+	{
+		outString(hPipe," [ERR] db(dest) requires 1 argument\n");
+		return 0;
+	}
+	return 0;
+}
+
 int cs_resumethreads(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
@@ -315,6 +404,7 @@ int cs_m_who_writes_to(lua_State *L)
 
 	memset(globalSolutions,0,sizeof(UINT_PTR) * 1024);
 	memset(globalSolutions_writeCount,0,sizeof(int) * 1024);
+	memset(globalSolutions_bytes,0,sizeof(char *) * 1024);
 	globalSolutions_isOverflow = 0;
 
 	AddVectoredExceptionHandler(1,veh_m);
@@ -489,13 +579,9 @@ LONG CALLBACK veh_m(EXCEPTION_POINTERS *ExceptionInfo)
 		{
 			globalSolutions[i] = (UINT_PTR )(ExceptionInfo->ExceptionRecord->ExceptionAddress);
 			globalSolutions_writeCount[i] = 1;
-			__try{
-				globalSolutions_bytes[i] = (char *)malloc(15);
-			}
-			__except{
-
-			}
-			
+			// prob crashes here, let's see.
+			globalSolutions_bytes[i] = (char *)malloc(15);
+			memcpy((char * )(globalSolutions_bytes[i]),(char * )ExceptionInfo->ExceptionRecord->ExceptionAddress,15);
 			doneFlag = 1;
 			break;
 		}
