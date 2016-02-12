@@ -2150,7 +2150,6 @@ static int cs_bind(lua_State *L)
     char *commandToRun = (char *)lua_tostring(L,2);
 
 	int vkeycode = VkKeyScanEx(hotkey[0],GetKeyboardLayout(0));
-
 	globalHotkeyArray[vkeycode] = strdup(commandToRun);
 
     // RegisterHotKey (NULL, (int )hotkey[0], MOD_NOREPEAT, (int )hotkey[0]);
@@ -2199,11 +2198,13 @@ DWORD WINAPI hotkeyThread(LPVOID param)
 	while(true)
 	{
 		Sleep(globalSleepTime);
+		// memset(globalHotkeyArray,0,sizeof( char * ) * 256);
 		for ( i = 0; i < 256 ; i++)
 		{
 			if(globalHotkeyArray[i] != 0)
 			{
-				if(KEY_DOWN(i))
+				// http://www.cplusplus.com/forum/windows/6632/
+				if(GetAsyncKeyState(i))
 				{
 					char *pchRequest = globalHotkeyArray[i];
 					if( luaL_loadbuffer(L,pchRequest,strlen(pchRequest),"Timer") == 0 )
