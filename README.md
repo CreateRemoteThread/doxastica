@@ -12,7 +12,7 @@ with the "peek" client.
 - "peek", basically an ipc telnet. invoke it with a pid as argument - a
 full command-line will be supplied by ldr32/ldr64 on a successful inject
 
-this project does not use any debug functionality[+] - shackle runs as it's
+this project does not use any debug functionality - shackle runs as it's
 own collection of threads within the host process.
 
 [+] installs it's own veh handler to catch guard page exceptions
