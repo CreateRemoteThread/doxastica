@@ -25,10 +25,10 @@ IF [%1]==[bins64] call build.bat ldr64
 IF [%1]==[bins64] call build.bat peek
 
 IF [%1]==[ldr64] cl /D ARCHI_64 /Zi /c /Foldr64.obj /Tp ldr.c
-IF [%1]==[ldr64] link /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:ldr64.exe ldr64.obj
+IF [%1]==[ldr64] link /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:ldr64.exe ldr64.obj user32.lib
 
 IF [%1]==[ldr32] cl /Zi /c /Foldr32.obj /Tp ldr.c
-IF [%1]==[ldr32] link /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:ldr32.exe ldr32.obj
+IF [%1]==[ldr32] link /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:ldr32.exe ldr32.obj user32.lib
 
 IF [%1]==[shackle64] cl /Zi /c /I lua53 /EHsc /Foptrscan64.obj /Tp ptrscan.c
 IF [%1]==[shackle64] cl /Zi /c /EHsc /I lua53 /Fosearch64.obj /Tp search.c

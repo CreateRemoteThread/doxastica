@@ -31,6 +31,7 @@ typedef DWORD (WINAPI * _DebugBreakProcess) (HANDLE);
 typedef DWORD (WINAPI * _DebugActiveProcessStop) (DWORD);
 typedef HANDLE (WINAPI * _OpenThread) (DWORD, BOOL, DWORD);
 typedef DWORD (WINAPI * _NtQueryInformationProcess) (HANDLE, int , PVOID, ULONG, SIZE_T *);
+int findprocessbywindow(char *strToMatch);
 
 _NtQueryInformationProcess NtQueryInformationProcess;
 
@@ -39,7 +40,6 @@ DWORD globalPid = 0;
 #define OPMODE_DEFAULT 0
 #define OPMODE_LIST 1
 #define OPMODE_INJECT 2
-
 int globalWait = 0;
 int globalTest = 0;
 int globalCooldown = 0;
@@ -108,7 +108,8 @@ void help()
 	printf(" [INFO] -timer : wait x seconds until inject\n");
 	printf(" [INFO] -dll : specify name of dll to inject\n");
 	printf(" [INFO] -inject : inject into PID (hexadecimal)\n");
-	printf(" [INFO] -fastinject : inject into first instance of executable name\n");
+	printf(" [INFO]  -> -fastinject : inject into first instance of executable name\n");
+	printf(" [INFO]  -> -findwindow : inject into the first window with a matching title :D\n");
 	printf(" [INFO] -list : list all processes matching mask\n");
 	printf(" [INFO] -listall : list all processes\n");
 	printf(" [INFO] -exe : use specified executable\n");
@@ -141,6 +142,22 @@ void parseArgs(int argc, char **argv)
 			globalCooldown = atoi(argv[i+1]);
 			i++;
 		}
+		else if((strcmp(argv[i],"-findwindow") == 0 || strcmp(argv[i],"--findwindow") == 0)\
+				&& i + 1 < argc\
+				&& opMode == OPMODE_DEFAULT)
+		{
+			opMode = OPMODE_INJECT;
+			globalInject = findprocessbywindow(argv[i+1]);
+
+			if (globalInject == 0)
+			{
+				printf(" [FAIL] could not parse process id \"%s\", ignoring subsequent arguments\n",argv[i+1]);
+				opMode = OPMODE_DEFAULT;
+				return;
+			}
+
+			i++;
+		}
 		else if((strcmp(argv[i],"-fastinject") == 0 || strcmp(argv[i],"--fastinject") == 0)\
 				&& i + 1 < argc\
 				&& opMode == OPMODE_DEFAULT)
@@ -150,7 +167,7 @@ void parseArgs(int argc, char **argv)
 			
 			if(globalInject == 0)
 			{
-				printf(" [FAIL] could not parse process id \"%s\", ignoring subsequent arguments\n",argv[i+1]);
+				printf(" [FAIL] could not find process \"%s\", ignoring subsequent arguments\n",argv[i+1]);
 				opMode = OPMODE_DEFAULT;
 				return;
 			}
@@ -225,6 +242,18 @@ char *fullpath(char *dllName)
 	strcat(retnValue,dllName);
 	
 	return retnValue;
+}
+
+int findprocessbywindow(char *strToMatch)
+{
+	HWND hproc = FindWindow(NULL,strToMatch);
+	if(hproc == NULL)
+	{
+		return 0;
+	}
+	DWORD PID = 0;
+	DWORD tid = GetWindowThreadProcessId(hproc,&PID);
+	return PID;
 }
 
 int listProcesses_matchFirst(char *strToMatch)
