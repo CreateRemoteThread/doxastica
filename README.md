@@ -99,6 +99,10 @@ are:
 
 [Click here for a reference of lua commands supported by doxastica](README_FILES/luaref.md)
 
+## compilation
+
+[Click here for a build guide](README_FILES/build.md)
+
 ## credits
 
 this code borrows heavily from other sources. these are listed below:
