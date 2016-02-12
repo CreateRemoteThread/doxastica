@@ -27,6 +27,70 @@ int vehTriggered = 0;
 
 // fetch_dword(12345)
 
+/*
+static int cs_disassemble(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
+	lua_pop(L,1);
+
+	char *addrTo = NULL;
+	int size = 0;
+
+	if (lua_gettop(L) == 2)
+	{
+		addrTo = (char *)(UINT_PTR )lua_tointeger(L,1);
+		size = lua_tointeger(L,2);
+	}
+	else if (lua_gettop(L) == 1)
+	{
+		addrTo = (char *)(UINT_PTR )lua_tointeger(L,1);
+		size = 5;
+		outString(hPipe," [NFO] assuming you want to disassemble 5 instructions\n");
+	}
+	else
+	{
+		outString(hPipe," [ERR] diasm(addr,{size}) requires 1-2 arguments\n");
+		return 0;
+	}
+
+	char mbuf[1024];        // sprintf buffer
+	char tempBuf[15];       // temp buf
+	int currentHeader = 0;
+	DISASM *d = (DISASM *)malloc(sizeof(DISASM));
+
+	memset(d,0,sizeof(DISASM));
+	d->Archi = ARCHI;
+	int len = 0;
+	
+	int i = 0;
+	for(;i < size;i++)
+	{
+		len = 1;
+		__try
+		{
+			d->EIP = (UIntPtr )(addrTo+currentHeader);
+			memcpy(tempBuf,(void *)(addrTo+currentHeader),15);
+			len = Disasm(d);
+
+			sprintf(mbuf," 0x%0x : %s\n",(UIntPtr )(addrTo+currentHeader),d->CompleteInstr);
+			outString(hPipe,mbuf);
+
+		}
+		__except( readfilter(GetExceptionCode(), GetExceptionInformation()) )
+		{
+			sprintf(mbuf," 0x%0x : ..\n",(UIntPtr )(addrTo+currentHeader));
+			outString(hPipe," ..\n");
+		}
+		currentHeader += len;
+	}
+
+	free(d);
+
+	return 0;
+}
+*/
+
 int cs_fetch_dword(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");

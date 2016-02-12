@@ -8,7 +8,7 @@
 #define SEARCH_DWORD 4
 #define SEARCH_WORD 2
 #define SEARCH_BYTE 1
-#define SEARCH_PATTERN 
+#define SEARCH_PATTERN 8
 
 struct searchResult
 {
@@ -28,6 +28,8 @@ int search_filter_byte(searchResult *m, BYTE newvalue);
 searchResult *mergeResults(searchResult *m, int solutionCount, UINT_PTR *solns);
 int validateSearchResult(searchResult *m);
 void printShortResults(HANDLE hPipe,searchResult *m);
+int page_search_pattern(UINT_PTR d,int pageSize,int *solutionCount, UINT_PTR *solutions, char *valueToSearch, size_t valueToSearch_len);
+int search_filter_pattern(searchResult *m, WORD newvalue,char *patternToMatch, size_t patternToMatch_len);
 
 int cs_search_filter(lua_State *L);
 int cs_search_new(lua_State *L);

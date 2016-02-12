@@ -67,7 +67,7 @@ such as labels. sorry =(
 
 - searchobj search_new(search_type,value,start,end):
   attempts to search mapped memory for a value of a given size
-  (i.e. SEARCH_DWORD, SEARCH_WORD, SEARCH_BYTE)
+  (i.e. SEARCH_DWORD, SEARCH_WORD, SEARCH_BYTE, SEARCH_PATTERN)
 
 - int search_filter(searchobj,newvalue):
   attempts to filter a previously identified list of values to a newvalue. note
@@ -81,6 +81,19 @@ such as labels. sorry =(
 - void search_free(searchobj):
   frees a search object. future attempts to use the freed search object should
   fail a validation check.
+
+### memory breakpointing
+
+- m_who_writes_to(location):
+  stops all threads, then in each thread that's not "ours", sets one of the
+  debug registers to location and activates DR7 (only one supported, too lazy
+  to do the others). a VEH handler is then set up, which then logs each instance
+  of the breakpoint being triggered.
+
+- m_finish_who_writes_to():
+  stops all threads, then unsets all breakpoints and removes the VEH handler.
+  then, lists up to 1024 code instances which were found to write to a given
+  location, along with a one-line disassembly.
 
 ### fast edit
 

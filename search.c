@@ -58,6 +58,30 @@ int page_search_word(UINT_PTR d,int pageSize,int *solutionCount, UINT_PTR *solut
 	return 1;
 }
 
+int page_search_pattern(UINT_PTR d,int pageSize,int *solutionCount, UINT_PTR *solutions, char *valueToSearch, size_t valueToSearch_len)
+{
+	char *readHead = (char *)d;
+	int i = 0;
+	int max = pageSize / sizeof(BYTE);
+	for( ; i < max; i++)
+	{
+		__try
+		{
+			if(memcmp((char *)(readHead + i), valueToSearch,valueToSearch_len) == 0)
+			{
+				solutions[solutionCount[0]] = (UINT_PTR )&(readHead[i]);
+				solutionCount[0] += 1;
+			}
+		}
+		__except(true)
+		{
+			return 0;
+		}
+	}
+
+	return 1;
+}
+
 int page_search_byte(UINT_PTR d,int pageSize,int *solutionCount, UINT_PTR *solutions, BYTE valueToSearch)
 {
 	BYTE *readHead = (BYTE *)d;
@@ -144,6 +168,35 @@ int search_filter_word(searchResult *m, WORD newvalue)
 	m->arraySolutions = newSolutions;
 	return remainingSolutions;
 }
+
+int search_filter_pattern(searchResult *m, WORD newvalue,char *patternToMatch, size_t patternToMatch_len)
+{
+	int i = 0;
+	int remainingSolutions = 0;
+	int max = m->numSolutions;
+	UINT_PTR *newSolutions = (UINT_PTR *)malloc(sizeof(UINT_PTR) * max);
+	for( ; i < max ; i++)
+	{
+		__try
+		{
+			if( memcmp((char *)(m->arraySolutions[i]),patternToMatch,patternToMatch_len) == 0)
+			{
+				newSolutions[remainingSolutions] = m->arraySolutions[i];
+				remainingSolutions += 1;
+			}
+		}
+		__except(true)
+		{
+			// nothing happens here.
+		}
+	}
+
+	free(m->arraySolutions);
+	m->numSolutions = remainingSolutions;
+	m->arraySolutions = newSolutions;
+	return remainingSolutions;
+}
+
 
 int search_filter_byte(searchResult *m, BYTE newvalue)
 {
@@ -402,6 +455,8 @@ int cs_search_new(lua_State *L)
 	DWORD valueToSearch_dword = 0;
 	WORD valueToSearch_word = 0;
 	BYTE valueToSearch_byte = 0;
+	char *valueToSearch_pattern = NULL;
+	size_t valueToSearch_patternLen = 0;
 	UINT_PTR start = 0;
 	#if ARCHI == 64
 		UINT_PTR hardMax = (UINT_PTR )si.lpMaximumApplicationAddress;
@@ -424,6 +479,9 @@ int cs_search_new(lua_State *L)
 				break;
 			case SEARCH_BYTE:
 				valueToSearch_byte = (BYTE )lua_tonumber(L,2);
+				break;
+			case SEARCH_PATTERN:
+				valueToSearch_pattern = (char *)lua_tolstring(L,2,&valueToSearch_patternLen);
 				break;
 			default:
 				outString(hPipe," [ERR] search_new(searchtype,searchdata,startAddress,endAddress) requires SEARCH_DWORD, SEARCH_WORD, SEARCH_BYTE or SEARCH_QWORD as first arg\n");
@@ -489,6 +547,9 @@ int cs_search_new(lua_State *L)
 				break;
 			case SEARCH_BYTE:
 				retVal = page_search_byte(readStart,si.dwPageSize,&solutionCount,solutions,valueToSearch_byte);
+				break;
+			case SEARCH_PATTERN:
+				retVal = page_search_pattern(readStart,si.dwPageSize,&solutionCount,solutions,valueToSearch_pattern,valueToSearch_patternLen);
 				break;
 			default:
 				outString(hPipe," [ERR] search: invalid search type\n");
