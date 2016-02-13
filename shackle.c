@@ -1030,7 +1030,6 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	luaL_dostring(luaState,"SEARCH_BYTE = 1");
 
 	// msgbox constants
-
 	luaL_dostring(luaState,"MB_ABORTRETRYIGNORE = 0x2");
 	luaL_dostring(luaState,"MB_CANCELTRYCONTINUE = 0x6");
 	luaL_dostring(luaState,"MB_HELP = 0x4000");

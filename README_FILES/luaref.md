@@ -116,3 +116,7 @@ such as labels. sorry =(
 
 - void d{b/w/d}(address):
   display a single {byte/word/dword} at the given address
+
+### handy lua stuff
+
+- dofile(filename) can load and execute a file

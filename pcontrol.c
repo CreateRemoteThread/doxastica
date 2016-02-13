@@ -637,29 +637,30 @@ LONG CALLBACK veh_m(EXCEPTION_POINTERS *ExceptionInfo)
 
 	char mbuf[1024];
 
-	/*
-	sprintf(mbuf," [NFO] veh_m address at 0x%x\n",ExceptionInfo->ExceptionRecord->ExceptionAddress);
-	OutputDebugString(mbuf);
-	*/
+	// take a look at EIP instead.
 
+	#if ARCHI == 64
+		UINT_PTR ea = (UINT_PTR )ExceptionInfo->ContextRecord->Rip;
+	#else
+		UINT_PTR ea = (UINT_PTR )ExceptionInfo->ContextRecord->Eip;
+	#endif
+	
 	EnterCriticalSection(&CriticalSection);
 	vehTriggered++;
 	for ( i = 0; i < 1024; i++)
 	{
-		if(globalSolutions[i] == (UINT_PTR )(ExceptionInfo->ExceptionRecord->ExceptionAddress))
+		if(globalSolutions[i] == (UINT_PTR )(ea))
 		{
 			globalSolutions_writeCount[i] += 1;
 			doneFlag = 1;
 			break;
-			// sprintf(mbuf," [NFO] incrementing write count for %x\n",ExceptionInfo->ExceptionRecord->ExceptionAddress);
-			// OutputDebugString(mbuf);
 		}
 		else if(globalSolutions[i] == 0)
 		{
-			globalSolutions[i] = (UINT_PTR )(ExceptionInfo->ExceptionRecord->ExceptionAddress);
+			globalSolutions[i] = (UINT_PTR )(ea);
 			globalSolutions_writeCount[i] = 1;
 			globalSolutions_bytes[i] = (char *)malloc(15);
-			memcpy((char * )(globalSolutions_bytes[i]),(char * )ExceptionInfo->ExceptionRecord->ExceptionAddress,15);
+			memcpy((char * )(globalSolutions_bytes[i]),(char * )ea,15);
 			doneFlag = 1;
 			break;
 		}
