@@ -5,7 +5,11 @@ the following additional lua functions are supported as part of doxastica. many
 of these were inspired by functionality in cheat engine:
 
 - void hexdump(address,{size}):
-  generates a number of 
+  dumps memory in hex and ascii if printable
+
+- void dd/dw/db(address,{size}):
+  dumps memory, grouped in dword/word/byte, as well as ascii translation if
+  printable.
 
 - void memcpy(addrto,addrfrom,{size}):
   like c, writes a block of memory at addrto, from addrfrom. if addrfrom is an
@@ -94,6 +98,16 @@ such as labels. sorry =(
   stops all threads, then unsets all breakpoints and removes the VEH handler.
   then, lists up to 1024 code instances which were found to write to a given
   location, along with a one-line disassembly.
+
+### automation / scripting
+
+- bind(hotkeychar,command):
+  executes lua_command when hotkeychar is pressed. note that this is done using
+  a GetAsyncKeyState every 500ms, so there may be a slight delay. adjustable
+  during compile.
+
+- fetch_byte/word/dword(location):
+  retrieves and silently returns a byte/word/dword from a given location
 
 ### fast edit
 
