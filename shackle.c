@@ -447,6 +447,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
 		IMAGE_DOS_HEADER *imgDosHdr = (IMAGE_DOS_HEADER *)mi.lpBaseOfDll;
 		IMAGE_NT_HEADERS *imgNtHdrs = (IMAGE_NT_HEADERS *)(imgDosHdr + imgDosHdr->e_lfanew);
 
+		/*
 		VirtualProtect(mi.lpBaseOfDll,1,PAGE_READWRITE,&oldProtect);
 		imgDosHdr->e_magic = 0;
 		imgDosHdr->e_lfanew = 0;
@@ -455,6 +456,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
 		VirtualProtect((LPVOID )(imgNtHdrs),1,PAGE_READWRITE,&oldProtect);
 		imgNtHdrs->Signature = 0;
 		VirtualProtect((LPVOID )(imgNtHdrs),1,oldProtect,&oldProtect);
+		*/
 		OutputDebugString(" - creating server thread\n");
 		CreateThread(NULL,0,IPCServerThread,NULL,0,&threadId);
 
@@ -1007,7 +1009,6 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	lua_register(luaState,"m_who_writes_to",cs_m_who_writes_to);
 	lua_register(luaState,"m_finish_who_writes_to",cs_m_finish_who_writes_to);
 	lua_register(luaState,"finish_m_who_writes_to",cs_m_finish_who_writes_to);
-
 
 	// mprotect constants
 	luaL_dostring(luaState,"PAGE_EXECUTE = 0x10");
