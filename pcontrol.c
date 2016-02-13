@@ -7,6 +7,7 @@
 #include <tlhelp32.h>
 #include "pcontrol.h"
 #include "shackle.h"
+#include "beaengine\beaengine.h"
 
 DWORD globalThreadArray[1024];
 int totalThreads = 0;
@@ -23,73 +24,28 @@ int globalSolutions_writeCount[1024];
 char *globalSolutions_bytes[1024];
 int globalSolutions_isOverflow = 0;
 
+int canSetNewBreak = 1;
+int needToFreeGSB = 0;
+
 int vehTriggered = 0;
 
-// fetch_dword(12345)
-
-/*
-static int cs_disassemble(lua_State *L)
-{
-	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
-	lua_pop(L,1);
-
-	char *addrTo = NULL;
-	int size = 0;
-
-	if (lua_gettop(L) == 2)
-	{
-		addrTo = (char *)(UINT_PTR )lua_tointeger(L,1);
-		size = lua_tointeger(L,2);
-	}
-	else if (lua_gettop(L) == 1)
-	{
-		addrTo = (char *)(UINT_PTR )lua_tointeger(L,1);
-		size = 5;
-		outString(hPipe," [NFO] assuming you want to disassemble 5 instructions\n");
-	}
-	else
-	{
-		outString(hPipe," [ERR] diasm(addr,{size}) requires 1-2 arguments\n");
-		return 0;
-	}
-
-	char mbuf[1024];        // sprintf buffer
-	char tempBuf[15];       // temp buf
-	int currentHeader = 0;
-	DISASM *d = (DISASM *)malloc(sizeof(DISASM));
-
-	memset(d,0,sizeof(DISASM));
-	d->Archi = ARCHI;
-	int len = 0;
-	
-	int i = 0;
-	for(;i < size;i++)
-	{
-		len = 1;
-		__try
-		{
-			d->EIP = (UIntPtr )(addrTo+currentHeader);
-			memcpy(tempBuf,(void *)(addrTo+currentHeader),15);
-			len = Disasm(d);
-
-			sprintf(mbuf," 0x%0x : %s\n",(UIntPtr )(addrTo+currentHeader),d->CompleteInstr);
-			outString(hPipe,mbuf);
-
-		}
-		__except( readfilter(GetExceptionCode(), GetExceptionInformation()) )
-		{
-			sprintf(mbuf," 0x%0x : ..\n",(UIntPtr )(addrTo+currentHeader));
-			outString(hPipe," ..\n");
-		}
-		currentHeader += len;
-	}
-
-	free(d);
-
-	return 0;
-}
-*/
+#ifdef ARCHI_64
+	#define ARCHI 64
+	#define PC_REG Rip
+	#define REGISTER_LENGTH DWORD64
+	#define FUNCTION_PATCHLEN 14
+	#define FUNCTION_SHORTPATCH_HACK 5
+	#define INTEL_MAXINSTRLEN 15
+	#define FUNCTION_TAILLEN 14
+#else
+	#define ARCHI 32
+	#define PC_REG Eip
+	#define REGISTER_LENGTH DWORD
+	#define FUNCTION_PATCHLEN 6
+	#define FUNCTION_SHORTPATCH_HACK 5
+	#define INTEL_MAXINSTRLEN 15
+	#define FUNCTION_TAILLEN 7
+#endif
 
 int cs_fetch_dword(lua_State *L)
 {
@@ -197,7 +153,6 @@ int cs_resumethreads(lua_State *L)
 		return 0;
 	}
 
-	// can you deny this?
 	if(Thread32First(hThreadSnap,&te32) == 0)
 	{
 		outString(hPipe," [ERR] thread32first returned 0, what's up?\n");
@@ -442,6 +397,13 @@ int cs_m_who_writes_to(lua_State *L)
 		outString(hPipe,mbuf);
 	}
 
+	if(canSetNewBreak == 0)
+	{
+		outString(hPipe," [ERR] m_who_writes_to already in use. m_finish_who_writes_to first.\n");
+		return 0;
+	}
+	canSetNewBreak = 0;
+
 	DWORD ownProcess = GetCurrentProcessId();
 	DWORD ownThread = GetCurrentThreadId();
 	THREADENTRY32 te32;
@@ -468,7 +430,23 @@ int cs_m_who_writes_to(lua_State *L)
 
 	memset(globalSolutions,0,sizeof(UINT_PTR) * 1024);
 	memset(globalSolutions_writeCount,0,sizeof(int) * 1024);
-	memset(globalSolutions_bytes,0,sizeof(char *) * 1024);
+	if(needToFreeGSB == 0)
+	{
+		needToFreeGSB = 1;
+		memset(globalSolutions_bytes,0,sizeof(char *) * 1024);
+	}
+	else
+	{
+		int i = 0;
+		for(; i < 1024;i++)
+		{
+			if(globalSolutions_bytes[i] != NULL)
+			{
+				free(globalSolutions_bytes[i]);
+			}
+		}
+		memset(globalSolutions_bytes,0,sizeof(char *) * 1024);
+	}
 	globalSolutions_isOverflow = 0;
 
 	AddVectoredExceptionHandler(1,veh_m);
@@ -501,6 +479,14 @@ int cs_m_finish_who_writes_to(lua_State *L)
 	lua_getglobal(L,"__hpipe");
 	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
 	lua_pop(L,1);
+
+	if(canSetNewBreak == 1)
+	{
+		outString(hPipe," [ERR] no break in place, m_who_writes_to first\n");
+		return 0;
+	}
+
+	canSetNewBreak = 1;
 
 	char mbuf[1024];
 
@@ -547,30 +533,62 @@ int cs_m_finish_who_writes_to(lua_State *L)
 
 	int i =0;
 
+
 	if(globalSolutions_isOverflow)
 	{
 		outString(hPipe," [NFO] overflow flag set = over 1024 access violations\n");
 	}
 	else
 	{
+		lua_newtable(L);
+
+		int i = 0;
+
+		char mbuf[1024];        // sprintf buffer
+		char tempBuf[15];       // temp buf
+		int currentHeader = 0;
+		DISASM *d = (DISASM *)malloc(sizeof(DISASM));
 		for ( i = 0; i < 1024 ; i++)
 		{
-			if(globalSolutions[i] != 0)
-			{
-				sprintf(mbuf," + [ADDR:0x%x] [WRITECOUNT:%d]\n",globalSolutions[i],globalSolutions_writeCount[i]);
-				outString(hPipe,mbuf);
-			}
-			else
+			if(globalSolutions_bytes[i] == 0)
 			{
 				break;
 			}
+
+			lua_pushinteger(L,i);
+			lua_pushinteger(L,globalSolutions[i]);
+			lua_settable(L,-3);
+
+			// doesn't work - never hits "except"
+			__try
+			{
+				memset(d,0,sizeof(DISASM));
+				d->Archi = ARCHI;
+				int len = 0;
+				d->EIP = (UIntPtr )globalSolutions_bytes[i];
+				Disasm(d);
+				if(globalSolutions[i] != 0)
+				{
+					sprintf(mbuf," + [ADDR:0x%x] [WRITECOUNT:%d] [DISASM:%s]\n",globalSolutions[i],globalSolutions_writeCount[i],d->CompleteInstr);
+					outString(hPipe,mbuf);
+				}
+				else
+				{
+					break;
+				}
+			}
+			__except(true)
+			{
+				sprintf(mbuf," + [ADDR:0x%x] [WRITECOUNT:%d] NO DISASSEMBLY\n",globalSolutions[i],globalSolutions_writeCount[i]);
+				outString(hPipe,mbuf);
+			}
 		}
+		free(d);
 	}
 
 	sprintf(mbuf," [NFO] unprotected %d threads, %d results [vehTriggered = %d]\n",totalThreads,i,vehTriggered);
 	outString(hPipe,mbuf);
 
-	lua_pushinteger(L,totalThreads);
 	return 1;
 }
 
@@ -582,9 +600,6 @@ void protectSingleThread(HANDLE hThread, UINT_PTR protectLocation)
 	GetThreadContext(hThread,&c);
 	c.Dr6 = 0;
     c.Dr0 = protectLocation;
-    c.Dr2 = protectLocation;
-    c.Dr3 = protectLocation;
-    c.Dr1 = protectLocation;
 	c.Dr7 = 0xff55ffff; // 0b11111111010101011111111111111111;
 	SetThreadContext(hThread,&c);
 	return;
@@ -611,9 +626,9 @@ LONG CALLBACK veh_m(EXCEPTION_POINTERS *ExceptionInfo)
 	int i;
 	int doneFlag = 0;
 
+
 	if(ExceptionInfo->ContextRecord->Dr6 == 0)
 	{
-
 		return EXCEPTION_CONTINUE_EXECUTION;
 	}
 
@@ -622,30 +637,30 @@ LONG CALLBACK veh_m(EXCEPTION_POINTERS *ExceptionInfo)
 
 	char mbuf[1024];
 
-	/*
-	sprintf(mbuf," [NFO] veh_m address at 0x%x\n",ExceptionInfo->ExceptionRecord->ExceptionAddress);
-	OutputDebugString(mbuf);
-	*/
+	// take a look at EIP instead.
 
+	#if ARCHI == 64
+		UINT_PTR ea = (UINT_PTR )ExceptionInfo->ContextRecord->Rip;
+	#else
+		UINT_PTR ea = (UINT_PTR )ExceptionInfo->ContextRecord->Eip;
+	#endif
+	
 	EnterCriticalSection(&CriticalSection);
 	vehTriggered++;
 	for ( i = 0; i < 1024; i++)
 	{
-		if(globalSolutions[i] == (UINT_PTR )(ExceptionInfo->ExceptionRecord->ExceptionAddress))
+		if(globalSolutions[i] == (UINT_PTR )(ea))
 		{
 			globalSolutions_writeCount[i] += 1;
 			doneFlag = 1;
 			break;
-			// sprintf(mbuf," [NFO] incrementing write count for %x\n",ExceptionInfo->ExceptionRecord->ExceptionAddress);
-			// OutputDebugString(mbuf);
 		}
 		else if(globalSolutions[i] == 0)
 		{
-			globalSolutions[i] = (UINT_PTR )(ExceptionInfo->ExceptionRecord->ExceptionAddress);
+			globalSolutions[i] = (UINT_PTR )(ea);
 			globalSolutions_writeCount[i] = 1;
-			// prob crashes here, let's see.
 			globalSolutions_bytes[i] = (char *)malloc(15);
-			memcpy((char * )(globalSolutions_bytes[i]),(char * )ExceptionInfo->ExceptionRecord->ExceptionAddress,15);
+			memcpy((char * )(globalSolutions_bytes[i]),(char * )ea,15);
 			doneFlag = 1;
 			break;
 		}

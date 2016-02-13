@@ -169,7 +169,7 @@ int search_filter_word(searchResult *m, WORD newvalue)
 	return remainingSolutions;
 }
 
-int search_filter_pattern(searchResult *m, WORD newvalue,char *patternToMatch, size_t patternToMatch_len)
+int search_filter_pattern(searchResult *m, char *patternToMatch, size_t patternToMatch_len)
 {
 	int i = 0;
 	int remainingSolutions = 0;
@@ -397,6 +397,8 @@ int cs_search_filter(lua_State *L)
 		DWORD newFilter_dw;
 		WORD newFilter_w;
 		BYTE newFilter_b;
+		char *newFilter_p = NULL;
+		size_t newFilter_length = 0;
 		switch(t)
 		{
 			case SEARCH_DWORD:
@@ -410,6 +412,10 @@ int cs_search_filter(lua_State *L)
 			case SEARCH_BYTE:
 				newFilter_b = (BYTE )lua_tonumber(L,2);
 				newResults = search_filter_byte(oldResults, newFilter_b);
+				break;
+			case SEARCH_PATTERN:
+				newFilter_p = (char *)lua_tolstring(L,2,&newFilter_length);
+				newResults = search_filter_pattern(oldResults,newFilter_p,newFilter_length);
 				break;
 			default:
 				outString(hPipe," [ERR] search_filter(results,new_value) tried to filter a search result with an invalid searchtype\n");
