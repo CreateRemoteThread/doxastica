@@ -595,12 +595,24 @@ int cs_m_finish_who_writes_to(lua_State *L)
 // we only have a single register
 void protectSingleThread(HANDLE hThread, UINT_PTR protectLocation)
 {
+	/*
+	http://www.logix.cz/michal/doc/i386/chp12-02.htm
+
+      31              23              15              7             0
+     +---+---+---+---+---+---+---+---+---+-+-----+-+-+-+-+-+-+-+-+-+-+
+     |LEN|R/W|LEN|R/W|LEN|R/W|LEN|R/W|   | |     |G|L|G|L|G|L|G|L|G|L|
+     |   |   |   |   |   |   |   |   |0 0|0|0 0 0| | | | | | | | | | | DR7
+     | 3 | 3 | 2 | 2 | 1 | 1 | 0 | 0 |   | |     |E|E|3|3|2|2|1|1|0|0|
+     |---+---+---+---+---+---+---+---+-+-+-+-----+-+-+-+-+-+-+-+-+-+-|
+
+	*/
 	CONTEXT c;
 	c.ContextFlags = CONTEXT_ALL;
 	GetThreadContext(hThread,&c);
 	c.Dr6 = 0;
     c.Dr0 = protectLocation;
-	c.Dr7 = 0xff55ffff; // 0b11111111010101011111111111111111;
+	c.Dr7 = 0xF0003; // 0b00000000000011110000000000000011
+	// c.Dr7 = 0xff55ffff; // 0b11111111010101011111111111111111;
 	SetThreadContext(hThread,&c);
 	return;
 }
@@ -615,7 +627,7 @@ void unprotectSingleThread(HANDLE hThread)
 	c.ContextFlags = CONTEXT_ALL;
 	GetThreadContext(hThread,&c);
 	c.Dr6 = 0;
-
+	c.Dr0 = 0;
 	c.Dr7 = 0;
 	SetThreadContext(hThread,&c);
 	return;
