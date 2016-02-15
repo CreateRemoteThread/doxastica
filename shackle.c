@@ -1007,8 +1007,11 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	lua_register(luaState,"resumethreads",cs_resumethreads);
 
 	lua_register(luaState,"m_who_writes_to",cs_m_who_writes_to);
+	lua_register(luaState,"m_who_reads_from",cs_m_who_reads_from);
+	lua_register(luaState,"m_who_accesses",cs_m_who_accesses);
 	lua_register(luaState,"m_finish_who_writes_to",cs_m_finish_who_writes_to);
 	lua_register(luaState,"finish_m_who_writes_to",cs_m_finish_who_writes_to);
+	lua_register(luaState,"m_finish",cs_m_finish_who_writes_to);
 
 	// mprotect constants
 	luaL_dostring(luaState,"PAGE_EXECUTE = 0x10");

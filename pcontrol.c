@@ -372,7 +372,7 @@ int __checkThread(DWORD threadId)
 	return 0;
 }
 
-int cs_m_who_writes_to(lua_State *L)
+int protectCore(lua_State *L,int protectMode)
 {
 	lua_getglobal(L,"__hpipe");
 	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
@@ -399,7 +399,7 @@ int cs_m_who_writes_to(lua_State *L)
 
 	if(canSetNewBreak == 0)
 	{
-		outString(hPipe," [ERR] m_who_writes_to already in use. m_finish_who_writes_to first.\n");
+		outString(hPipe," [ERR] memory breakpoint shared cooldown already in use. m_finish() first.\n");
 		return 0;
 	}
 	canSetNewBreak = 0;
@@ -458,7 +458,7 @@ int cs_m_who_writes_to(lua_State *L)
 		{
 			HANDLE hThread = OpenThread(THREAD_ALL_ACCESS,FALSE,te32.th32ThreadID);
 			SuspendThread(hThread);
-			protectSingleThread(hThread,protectAddr);
+			protectSingleThread(hThread,protectAddr,protectMode);
 			ResumeThread(hThread);
 			CloseHandle(hThread);
 			totalThreads += 1;
@@ -472,6 +472,21 @@ int cs_m_who_writes_to(lua_State *L)
 
 	lua_pushinteger(L,totalThreads);
 	return 1;
+}
+
+int cs_m_who_writes_to(lua_State *L)
+{
+	return protectCore(L,PROTECT_WRITE);
+}
+
+int cs_m_who_reads_from(lua_State *L)
+{
+	return protectCore(L,PROTECT_READ);
+}
+
+int cs_m_who_accesses(lua_State *L)
+{
+	return protectCore(L,PROTECT_READ | PROTECT_WRITE);
 }
 
 int cs_m_finish_who_writes_to(lua_State *L)
@@ -593,7 +608,7 @@ int cs_m_finish_who_writes_to(lua_State *L)
 }
 
 // we only have a single register
-void protectSingleThread(HANDLE hThread, UINT_PTR protectLocation)
+void protectSingleThread(HANDLE hThread, UINT_PTR protectLocation, int protectMode)
 {
 	/*
 	http://www.logix.cz/michal/doc/i386/chp12-02.htm
@@ -611,7 +626,25 @@ void protectSingleThread(HANDLE hThread, UINT_PTR protectLocation)
 	GetThreadContext(hThread,&c);
 	c.Dr6 = 0;
     c.Dr0 = protectLocation;
-	c.Dr7 = 0xF0003; // 0b00000000000011110000000000000011
+	if(protectMode == PROTECT_READ)
+	{
+		// 0b00000000000011100000000000000011
+		c.Dr7 = 0xD0003;
+	}
+	else if (protectMode == PROTECT_WRITE)
+	{
+		// 0b00000000000011100000000000000011
+		c.Dr7 = 0xE0003;
+	}
+	else if(protectMode == (PROTECT_READ | PROTECT_WRITE ) )
+	{
+		c.Dr7 = 0xF0003;
+	}
+	else
+	{
+		// outString(hPipe," [ERR] need PROTECT_READ or PROTECT_WRITE when trying to mem break\n")
+		return;
+	}
 	// c.Dr7 = 0xff55ffff; // 0b11111111010101011111111111111111;
 	SetThreadContext(hThread,&c);
 	return;

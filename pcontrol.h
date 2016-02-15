@@ -23,6 +23,9 @@ int cs_resumethreads(lua_State *L);
 typedef LONG KPRIORITY;
 typedef LONG NTSTATUS;
 
+#define PROTECT_READ 1
+#define PROTECT_WRITE 2
+
 #define STATUS_SUCCESS              ((NTSTATUS) 0x00000000)
 #define STATUS_INFO_LENGTH_MISMATCH ((NTSTATUS) 0xC0000004)
 
@@ -244,9 +247,13 @@ private:
 // http://www.informit.com/articles/article.aspx?p=22442&seqNum=5
 
 int cs_m_who_writes_to(lua_State *L);
+int cs_m_who_reads_from(lua_State *L);
+int cs_m_who_accesses(lua_State *L);
 int cs_m_finish_who_writes_to(lua_State *L);
 
-void protectSingleThread(HANDLE hThread, UINT_PTR protectLocation);
+int protectCore(lua_State *L,int protectMode);
+
+void protectSingleThread(HANDLE hThread, UINT_PTR protectLocation, int protectMode);
 void unprotectSingleThread(HANDLE hThread);
 
 LONG CALLBACK veh_m(EXCEPTION_POINTERS *ExceptionInfo);
