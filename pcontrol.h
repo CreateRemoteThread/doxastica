@@ -257,3 +257,4 @@ void protectSingleThread(HANDLE hThread, UINT_PTR protectLocation, int protectMo
 void unprotectSingleThread(HANDLE hThread);
 
 LONG CALLBACK veh_m(EXCEPTION_POINTERS *ExceptionInfo);
+int unresolve(UINT_PTR addr, char *mbuf);

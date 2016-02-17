@@ -489,6 +489,7 @@ int cs_m_who_accesses(lua_State *L)
 	return protectCore(L,PROTECT_READ | PROTECT_WRITE);
 }
 
+// something is broken here.
 int cs_m_finish_who_writes_to(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
@@ -505,8 +506,6 @@ int cs_m_finish_who_writes_to(lua_State *L)
 
 	char mbuf[1024];
 
-	RemoveVectoredExceptionHandler(veh_m);
-	DeleteCriticalSection(&CriticalSection);
 
 	DWORD ownProcess = GetCurrentProcessId();
 	DWORD ownThread = GetCurrentThreadId();
@@ -544,10 +543,13 @@ int cs_m_finish_who_writes_to(lua_State *L)
 		}
 	}
 	while (Thread32Next(hThreadSnap,&te32));
+
+	RemoveVectoredExceptionHandler(veh_m);
+	DeleteCriticalSection(&CriticalSection);
+
 	CloseHandle(hThreadSnap);
 
 	int i =0;
-
 
 	if(globalSolutions_isOverflow)
 	{
@@ -584,7 +586,7 @@ int cs_m_finish_who_writes_to(lua_State *L)
 				Disasm(d);
 				if(globalSolutions[i] != 0)
 				{
-					sprintf(mbuf," + [ADDR:0x%x] [WRITECOUNT:%d] [DISASM:%s]\n",globalSolutions[i],globalSolutions_writeCount[i],d->CompleteInstr);
+					sprintf(mbuf," + [ADDR:0x%x(%s)] [WRITECOUNT:%d] [DISASM:%s]\n",globalSolutions[i],unresolve(globalSolutions[i]),globalSolutions_writeCount[i],d->CompleteInstr);
 					outString(hPipe,mbuf);
 				}
 				else
@@ -622,7 +624,7 @@ void protectSingleThread(HANDLE hThread, UINT_PTR protectLocation, int protectMo
 
 	*/
 	CONTEXT c;
-	c.ContextFlags = CONTEXT_ALL;
+	c.ContextFlags = CONTEXT_DEBUG_REGISTERS;
 	GetThreadContext(hThread,&c);
 	c.Dr6 = 0;
     c.Dr0 = protectLocation;
@@ -657,7 +659,7 @@ void unprotectSingleThread(HANDLE hThread)
 {
 
 	CONTEXT c;
-	c.ContextFlags = CONTEXT_ALL;
+	c.ContextFlags = CONTEXT_DEBUG_REGISTERS;
 	GetThreadContext(hThread,&c);
 	c.Dr6 = 0;
 	c.Dr0 = 0;
@@ -671,10 +673,9 @@ LONG CALLBACK veh_m(EXCEPTION_POINTERS *ExceptionInfo)
 	int i;
 	int doneFlag = 0;
 
-
 	if(ExceptionInfo->ContextRecord->Dr6 == 0)
 	{
-		return EXCEPTION_CONTINUE_EXECUTION;
+		return EXCEPTION_CONTINUE_SEARCH;
 	}
 
 	// does this work, or do i need to roll with SetThreadContext?
@@ -718,4 +719,42 @@ LONG CALLBACK veh_m(EXCEPTION_POINTERS *ExceptionInfo)
 
 	LeaveCriticalSection(&CriticalSection);
 	return EXCEPTION_CONTINUE_EXECUTION;
+}
+
+int unresolve(UINT_PTR addr, char *mbuf)
+{
+	HMODULE hMods[1024];
+	DWORD cbNeeded = 0;
+	MODULEINFO modInfo;
+	HANDLE hProcess = GetCurrentProcess();
+	if( EnumProcessModules( hProcess, hMods, sizeof(hMods),&cbNeeded) )
+	{
+		int i = 0;
+		for (; i < (cbNeeded / sizeof(HMODULE)); i++)
+		{
+			char szModName[1024];
+			GetModuleInformation(hProcess,hMods[i],&modInfo,sizeof(modInfo));
+			if(GetModuleFileNameEx( hProcess,hMods[i],szModName,sizeof(szModName) / sizeof(char)) )
+			{
+				if ( GetModuleInformation(hProcess,hMods[i],&modInfo,sizeof(modInfo)) )
+				{
+					if(address == (UINT_PTR )modInfo.lpBaseOfDll)
+					{
+						sprintf(mbuf,shortName(szModName));
+						return 1;
+					}
+					else if(address > (UINT_PTR )modInfo.lpBaseOfDll && address <= (UINT_PTR )((UINT_PTR )modInfo.lpBaseOfDll + modInfo.SizeOfImage))
+					{
+						sprintf(mbuf,"%s+0x%x",shortName(szModName),(address - (UINT_PTR )modInfo.lpBaseOfDll));
+						return 1;
+					}
+				}
+			}
+		}
+	}
+	else
+	{
+		return 0;
+	}
+	return 0;
 }
