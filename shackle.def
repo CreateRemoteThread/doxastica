@@ -1,0 +1,4 @@
+LIBRARY shackle
+EXPORTS hook
+EXPORTS iathook
+EXPORTS DllMain

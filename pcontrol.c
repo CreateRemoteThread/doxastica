@@ -5,6 +5,7 @@
 #include <lualib.h>
 #include <windows.h>
 #include <tlhelp32.h>
+#include <psapi.h>
 #include "pcontrol.h"
 #include "shackle.h"
 #include "beaengine\beaengine.h"
@@ -551,6 +552,8 @@ int cs_m_finish_who_writes_to(lua_State *L)
 
 	int i =0;
 
+	char mbuf_resolve[1024];
+
 	if(globalSolutions_isOverflow)
 	{
 		outString(hPipe," [NFO] overflow flag set = over 1024 access violations\n");
@@ -586,7 +589,8 @@ int cs_m_finish_who_writes_to(lua_State *L)
 				Disasm(d);
 				if(globalSolutions[i] != 0)
 				{
-					sprintf(mbuf," + [ADDR:0x%x(%s)] [WRITECOUNT:%d] [DISASM:%s]\n",globalSolutions[i],unresolve(globalSolutions[i]),globalSolutions_writeCount[i],d->CompleteInstr);
+					unresolve(globalSolutions[i],mbuf_resolve);
+					sprintf(mbuf," + [ADDR:0x%x(%s)] [WRITECOUNT:%d] [DISASM:%s]\n",globalSolutions[i],mbuf_resolve,globalSolutions_writeCount[i],d->CompleteInstr);
 					outString(hPipe,mbuf);
 				}
 				else
@@ -721,7 +725,7 @@ LONG CALLBACK veh_m(EXCEPTION_POINTERS *ExceptionInfo)
 	return EXCEPTION_CONTINUE_EXECUTION;
 }
 
-int unresolve(UINT_PTR addr, char *mbuf)
+int unresolve(UINT_PTR address, char *mbuf)
 {
 	HMODULE hMods[1024];
 	DWORD cbNeeded = 0;
@@ -758,3 +762,4 @@ int unresolve(UINT_PTR addr, char *mbuf)
 	}
 	return 0;
 }
+

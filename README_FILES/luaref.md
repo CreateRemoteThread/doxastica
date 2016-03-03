@@ -34,12 +34,6 @@ of these were inspired by functionality in cheat engine:
   runs whatever code is at addr in a new thread. addr must be a number. can be
   used to call existing code, or new code in a malloc shell
 
-- void who_writes_to(addr,size) / void finish_who_writes_to():
-  sets up a PAGE_EXECUTE_READ permission on the page[s] covering addr,size, and
-  then sets up a vectored exception handler to catch writes to this memory address.
-  at each write, a stack trace will be performed - only unique stack traces / unique
-  code paths wil be recorded. ~super unstable.~
-
 ### assembler
 
 doxastica uses the xedparse assembler library to provide both 32-bit and 64-bit
@@ -84,13 +78,13 @@ such as labels. sorry =(
 
 ### memory breakpointing
 
-- m_who_writes_to(location):
+- m_who_accesses(location):
   stops all threads, then in each thread that's not "ours", sets one of the
   debug registers to location and activates DR7 (only one supported, too lazy
   to do the others). a VEH handler is then set up, which then logs each instance
   of the breakpoint being triggered.
 
-- m_finish_who_writes_to():
+- m_finish():
   stops all threads, then unsets all breakpoints and removes the VEH handler.
   then, lists up to 1024 code instances which were found to write to a given
   location, along with a one-line disassembly.
@@ -105,4 +99,4 @@ such as labels. sorry =(
 
 ### handy lua stuff
 
-- dofile(filename) can load and execute a file
+- dofile(filename) can load and execute a (lua) file

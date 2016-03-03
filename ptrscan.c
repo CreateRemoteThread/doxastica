@@ -4,6 +4,8 @@
 #include <lualib.h>
 #include "ptrscan.h"
 
+// search for ptr table.
+
 int cs_ptrscan(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");

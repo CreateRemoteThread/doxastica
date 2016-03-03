@@ -22,8 +22,6 @@
 #define EOFMARK		"<eof>"
 #define marklen		(sizeof(EOFMARK)/sizeof(char) - 1)
 
-// switched to beaengine for 64-bit support
-
 void printShortResults(HANDLE hPipe,lua_State *L,searchResult *m);
 
 #ifdef ARCHI_64
@@ -54,10 +52,14 @@ typedef DWORD (WINAPI * _WSASend) (SOCKET, UINT_PTR, DWORD, UINT_PTR, DWORD, UIN
 
 _MessageBoxA oldMessageBox = NULL;
 _send oldSend = NULL;
+_send oldRecv = NULL;
 _WSASend oldWSASend = NULL;
 
 char *globalHotkeyArray[256];
 int globalSleepTime = 500;
+
+CRITICAL_SECTION packetCaptureSection = {0};
+FILE *packetCapture = NULL;
 
 /*
 // okay, what's the function prelude of newmessagebox?
@@ -116,13 +118,26 @@ unsigned long WINAPI newMessageBox(unsigned long hwnd,char *msg,char *title,unsi
 }
 
 extern "C" __declspec(dllexport) unsigned long __stdcall newSend(unsigned long socket, char *buf, unsigned long len, unsigned long flags);
+extern "C" __declspec(dllexport) unsigned long __stdcall newRecv(unsigned long socket, char *buf, unsigned long len, unsigned long flags);
 
 // doesn't give me the same calling convention =)
 extern "C" unsigned long __stdcall newSend(unsigned long socket, char *buf, unsigned long len, unsigned long flags)
 {
-	// never gets called, why?
-	OutputDebugString("lol1\n");
 	int i = oldSend(socket, buf, len, flags);
+	EnterCriticalSection(&packetCaptureSection);
+	fwrite(&len,1,sizeof(unsigned long ),packetCapture);
+	fwrite(buf,1,len,packetCapture);
+	LeaveCriticalSection(&packetCaptureSection);
+	return i;
+}
+
+extern "C" unsigned long __stdcall newRecv(unsigned long socket, char *buf, unsigned long len, unsigned long flags)
+{
+	int i = oldRecv(socket, buf, len, flags);
+	EnterCriticalSection(&packetCaptureSection);
+	fwrite(&len,1,sizeof(unsigned long ),packetCapture);
+	fwrite(buf,1,len,packetCapture);
+	LeaveCriticalSection(&packetCaptureSection);
 	return i;
 }
 
@@ -434,6 +449,12 @@ DWORD threadId_hotkeys = 0;
 
 BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
 {
+	SYSTEMTIME lt = {0};
+	char *fnameBuf[1024];
+
+	GetLocalTime(&lt);
+
+	sprintf((char *)fnameBuf,"c:\\projects\\packetlog-%02d:%02d.log",lt.wHour,lt.wMinute);
 	MODULEINFO mi;
     if(fdwReason == DLL_PROCESS_ATTACH && init == 0)
       {
@@ -447,7 +468,8 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
 		IMAGE_DOS_HEADER *imgDosHdr = (IMAGE_DOS_HEADER *)mi.lpBaseOfDll;
 		IMAGE_NT_HEADERS *imgNtHdrs = (IMAGE_NT_HEADERS *)(imgDosHdr + imgDosHdr->e_lfanew);
 
-		/*
+		OutputDebugString(" - my mind is not my own: breaking headers\n");
+
 		VirtualProtect(mi.lpBaseOfDll,1,PAGE_READWRITE,&oldProtect);
 		imgDosHdr->e_magic = 0;
 		imgDosHdr->e_lfanew = 0;
@@ -456,15 +478,21 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
 		VirtualProtect((LPVOID )(imgNtHdrs),1,PAGE_READWRITE,&oldProtect);
 		imgNtHdrs->Signature = 0;
 		VirtualProtect((LPVOID )(imgNtHdrs),1,oldProtect,&oldProtect);
-		*/
+
 		OutputDebugString(" - creating server thread\n");
 		CreateThread(NULL,0,IPCServerThread,NULL,0,&threadId);
 
 		// hook((UINT_PTR )GetProcAddress(LoadLibrary("user32"),"MessageBoxA"),(UINT_PTR )&newMessageBox,(UINT_PTR *)&oldMessageBox);
 
 		// iathook((UINT_PTR )GetProcAddress(LoadLibrary("ws2_32"),"WSASend"),(UINT_PTR )&newWSASend,(UINT_PTR *)&oldWSASend);
+		InitializeCriticalSection(&packetCaptureSection);
+		packetCapture = fopen((char *)fnameBuf,"wb");
 
-		// iathook((UINT_PTR )GetProcAddress(LoadLibrary("ws2_32"),"send"),(UINT_PTR )&newSend,(UINT_PTR *)&oldSend);
+		hook((UINT_PTR )GetProcAddress(LoadLibrary("ws2_32"),"send"),(UINT_PTR )&newSend,(UINT_PTR *)&oldSend);
+		hook((UINT_PTR )GetProcAddress(LoadLibrary("ws2_32"),"recv"),(UINT_PTR )&newRecv,(UINT_PTR *)&oldRecv);
+		DeleteCriticalSection(&packetCaptureSection);
+
+		fclose(packetCapture);
 		
 		return TRUE;
       }
@@ -1006,8 +1034,8 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	lua_register(luaState,"stopthreads",cs_stopthreads);
 	lua_register(luaState,"resumethreads",cs_resumethreads);
 
-	lua_register(luaState,"m_who_writes_to",cs_m_who_writes_to);
-	lua_register(luaState,"m_who_reads_from",cs_m_who_reads_from);
+	// lua_register(luaState,"m_who_writes_to",cs_m_who_writes_to);
+	// lua_register(luaState,"m_who_reads_from",cs_m_who_reads_from);
 	lua_register(luaState,"m_who_accesses",cs_m_who_accesses);
 	lua_register(luaState,"m_finish_who_writes_to",cs_m_finish_who_writes_to);
 	lua_register(luaState,"finish_m_who_writes_to",cs_m_finish_who_writes_to);
