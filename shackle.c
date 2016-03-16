@@ -480,6 +480,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
 		VirtualProtect((LPVOID )(imgNtHdrs),1,oldProtect,&oldProtect);
 
 		OutputDebugString(" - creating server thread\n");
+
 		CreateThread(NULL,0,IPCServerThread,NULL,0,&threadId);
 
 		// hook((UINT_PTR )GetProcAddress(LoadLibrary("user32"),"MessageBoxA"),(UINT_PTR )&newMessageBox,(UINT_PTR *)&oldMessageBox);
@@ -488,8 +489,8 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
 		InitializeCriticalSection(&packetCaptureSection);
 		packetCapture = fopen((char *)fnameBuf,"wb");
 
-		hook((UINT_PTR )GetProcAddress(LoadLibrary("ws2_32"),"send"),(UINT_PTR )&newSend,(UINT_PTR *)&oldSend);
-		hook((UINT_PTR )GetProcAddress(LoadLibrary("ws2_32"),"recv"),(UINT_PTR )&newRecv,(UINT_PTR *)&oldRecv);
+		iathook((UINT_PTR )GetProcAddress(LoadLibrary("ws2_32"),"send"),(UINT_PTR )&newSend,(UINT_PTR *)&oldSend);
+		iathook((UINT_PTR )GetProcAddress(LoadLibrary("ws2_32"),"recv"),(UINT_PTR )&newRecv,(UINT_PTR *)&oldRecv);
 		DeleteCriticalSection(&packetCaptureSection);
 
 		fclose(packetCapture);
