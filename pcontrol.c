@@ -763,3 +763,74 @@ int unresolve(UINT_PTR address, char *mbuf)
 	return 0;
 }
 
+// ------------------------------ ------------------------------ ------------------------------
+
+int cs_dump_everything_we_can(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
+	lua_pop(L,1);
+
+	char mbuf[1024];
+    char filebuf[1024];
+	memset(filebuf,0,1024);
+	memset(mbuf,0,1024);
+
+	char *savedirectory = (char *)lua_tostring(L,1);
+
+	DWORD dwAttrib = GetFileAttributes(savedirectory);
+	if(dwAttrib != INVALID_FILE_ATTRIBUTES)
+	{
+		sprintf(mbuf," [+] '%s' already exists, not saving anything\n",savedirectory);
+		outString(hPipe,mbuf);
+		return 0;
+	}
+	else
+	{
+		sprintf(mbuf," [+] saving to directory '%s'\n",savedirectory);
+		outString(hPipe,mbuf);
+		CreateDirectory(savedirectory,NULL);
+	}
+
+	UINT_PTR readStart = 0;
+	int skippedPages = 0;
+	SYSTEM_INFO si;               // for dwPageSize
+	MEMORY_BASIC_INFORMATION mbi; // for query check
+
+	GetSystemInfo(&si);
+	#if ARCHI == 64
+		UINT_PTR hardMax = (UINT_PTR )si.lpMaximumApplicationAddress;
+	#else
+		UINT_PTR hardMax = 0x7FFFFFFF;
+	#endif
+
+	for( ; readStart < hardMax ; readStart += si.dwPageSize )
+	{
+		int vqresult = VirtualQuery((LPCVOID )readStart,&mbi,sizeof(MEMORY_BASIC_INFORMATION));
+		if(vqresult == 0)
+		{
+			readStart = (UINT_PTR )((UINT_PTR )mbi.BaseAddress + mbi.RegionSize);
+			continue;
+		}
+		else if(mbi.State != MEM_COMMIT || mbi.Protect == PAGE_NOACCESS)
+		{
+			readStart = (UINT_PTR )((UINT_PTR )mbi.BaseAddress + mbi.RegionSize);
+			continue;
+		}
+
+		UINT_PTR newReadStart = readStart;
+		int readSize = 0;
+		while(vqresult != 0 && !(mbi.State != MEM_COMMIT || mbi.Protect == PAGE_NOACCESS))
+		{
+			readSize += si.dwPageSize;
+			newReadStart += (UINT_PTR )si.dwPageSize;
+			VirtualQuery((LPCVOID )newReadStart,&mbi,sizeof(MEMORY_BASIC_INFORMATION));
+		}
+		sprintf(filebuf,"%s/0x%p-0x%p.out",savedirectory,readStart,newReadStart);
+		FILE *o = fopen(filebuf,"wb");
+		fwrite((char *)readStart,1,newReadStart - readStart,o);
+		fclose(o);
+	}
+	
+	return 0;
+}

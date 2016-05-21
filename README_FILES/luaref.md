@@ -34,6 +34,11 @@ of these were inspired by functionality in cheat engine:
   runs whatever code is at addr in a new thread. addr must be a number. can be
   used to call existing code, or new code in a malloc shell
 
+- void dump_all(_directory):
+  dumps entire memory space into a new directory named _directory. this will not
+  write to existing directories. remember that the current directory will be
+  based on the target process' executable (aka specify a full path you lazy fuck)
+
 ### assembler
 
 doxastica uses the xedparse assembler library to provide both 32-bit and 64-bit
