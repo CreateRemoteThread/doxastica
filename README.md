@@ -1,16 +1,16 @@
 
 
-* [Introduction](#Introduction)
-* [Quickstart Tutorials](#Quickstart Tutorials)
+* [Introduction](#intro)
+* [Quickstart Tutorials](#quickstart)
   * [tutorial: ut99](#ut99)
-  * [tutorial: save to disk](#save to disk)
-* [Lua Engine](#Lua Engine)
-  * [lua default variables](#lua default variables)
-  * [lua commands listing](#lua commands listing)
+  * [tutorial: save to disk](#save)
+* [Lua Engine](#luaengine)
+  * [lua default variables](#luavars)
+  * [lua commands listing](README_FILES/luaref.md)
 * [Development](README_FILES/build.md)
-* [Credits](#Credits)
+* [Credits](#credits)
 
-Introduction <a name="Introduction"></a>
+Introduction <a name="intro"></a>
 ============
 
 doxastica is an injectable lua interpreter, designed to make interacting
@@ -41,10 +41,10 @@ thing).
 - compared to a debugger, you're inside a process' memory. this means you are
 fast as shit for certain operations (but crippled in others).
 
-Quickstart Tutorials
+Quickstart Tutorials <a name="quickstart"></a>
 ====================
 
-ut99
+ut99 <a name="ut99"></a>
 ----
 
 the goal of our quickstart tutorial will be the hack the unral tournament goty
@@ -95,7 +95,7 @@ time we hit a key.
 
 now, by pressing "p" for half a second, your health will be restored to 500 :)
 
-save to disk
+save to disk <a name="save"></a>
 ------------
 
 sometimes, you want to wait for something to unpack in memory and then save it
@@ -107,10 +107,10 @@ to disk. currently, you can do this with lua's file api:
     io.write(data)
     io.close(file)
 
-Lua Engine
+Lua Engine <a name="luaengine"></a>
 ==========
 
-lua default variables
+lua default variables <a name="luavars"></a>
 ---------------------
 
 upon starting a lua instance, several default variables are initialized. these
@@ -132,7 +132,7 @@ lua commands listing
 
 [Click here for a reference of lua commands supported by doxastica](README_FILES/luaref.md)
 
-Credits
+Credits <a name="credits"></a>
 =======
 
 this code borrows heavily from other sources. these are listed below:
