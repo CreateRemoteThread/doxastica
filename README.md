@@ -1,16 +1,16 @@
-Table of Contents
+
 
 * [Introduction](#Introduction)
 * [Quickstart Tutorials](#Quickstart Tutorials)
-  * [tutorial: ut99](#tutorial: ut99)
-  * [tutorial: save to disk](#tutorial: save to disk)
+  * [tutorial: ut99](#ut99)
+  * [tutorial: save to disk](#save to disk)
 * [Lua Engine](#Lua Engine)
   * [lua default variables](#lua default variables)
   * [lua commands listing](#lua commands listing)
 * [Development](README_FILES/build.md)
 * [Credits](#Credits)
 
-Introduction
+Introduction <a name="Introduction"></a>
 ============
 
 doxastica is an injectable lua interpreter, designed to make interacting
@@ -44,8 +44,8 @@ fast as shit for certain operations (but crippled in others).
 Quickstart Tutorials
 ====================
 
-tutorial: ut99
---------------
+ut99
+----
 
 the goal of our quickstart tutorial will be the hack the unral tournament goty
 edition from steam (http://store.steampowered.com/app/13240/). we will try to
@@ -95,8 +95,8 @@ time we hit a key.
 
 now, by pressing "p" for half a second, your health will be restored to 500 :)
 
-tutorial: save to disk
-----------------------
+save to disk
+------------
 
 sometimes, you want to wait for something to unpack in memory and then save it
 to disk. currently, you can do this with lua's file api:
