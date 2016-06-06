@@ -763,7 +763,19 @@ int unresolve(UINT_PTR address, char *mbuf)
 	return 0;
 }
 
-// ------------------------------ ------------------------------ ------------------------------
+int cs_dump_module(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
+	lua_pop(L,1);
+
+	char mbuf[1024];
+	char *dumpfile = (char *)lua_tostring(L,1);
+
+	return 0;
+}
+
+// ------------------------------ ? ------------------------------
 
 int cs_dump_everything_we_can(lua_State *L)
 {
@@ -826,6 +838,7 @@ int cs_dump_everything_we_can(lua_State *L)
 			newReadStart += (UINT_PTR )si.dwPageSize;
 			VirtualQuery((LPCVOID )newReadStart,&mbi,sizeof(MEMORY_BASIC_INFORMATION));
 		}
+
 		sprintf(filebuf,"%s/0x%p-0x%p.out",savedirectory,readStart,newReadStart);
 		FILE *o = fopen(filebuf,"wb");
 		fwrite((char *)readStart,1,newReadStart - readStart,o);

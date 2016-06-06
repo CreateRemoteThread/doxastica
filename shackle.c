@@ -24,6 +24,8 @@
 
 void printShortResults(HANDLE hPipe,lua_State *L,searchResult *m);
 
+#define VERSTRING "[v0p2 anarchy's heart]"
+
 #ifdef ARCHI_64
 	#define ARCHI 64
 	#define PC_REG Rip
@@ -1017,6 +1019,7 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	lua_register(luaState,"search_fetch",cs_search_fetch);
 	lua_register(luaState,"search_vtable",cs_search_vtable);
 	lua_register(luaState,"dump_all",cs_dump_everything_we_can);
+	lua_register(luaState,"dump_module",cs_dump_module);
 	lua_register(luaState,"eb",cs_eb);
 	lua_register(luaState,"ew",cs_ew);
 	lua_register(luaState,"ed",cs_ed);
@@ -1138,9 +1141,9 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 			{
 				if ( GetModuleInformation(hProcess,hMods[i],&modInfo,sizeof(modInfo)) )
 				{
-					sprintf(mbuf," + %s (0x%08x) (EP:0x%0x)\n",shortName(szModName),hMods[i],modInfo.EntryPoint);
+					sprintf(mbuf," + %s (0x%08x, size:%x) (entry:0x%0x)\n",shortName(szModName),hMods[i],modInfo.SizeOfImage,modInfo.EntryPoint);
 					outString(hPipe,mbuf);
-					sprintf(mbuf,"%s = {start=%d,size=%d}",shortName(szModName),modInfo.EntryPoint,modInfo.SizeOfImage);
+					sprintf(mbuf,"%s = {start=%d,size=%d}",shortName(szModName),hMods[i],modInfo.SizeOfImage);
 					int bufptr = 0;
 					for(;mbuf[bufptr] != '\0';bufptr++)
 					{
@@ -1150,11 +1153,10 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 						}
 					}
 					luaL_dostring(luaState,mbuf);
-
 				}
 				else
 				{
-					sprintf(mbuf," + %s (0x%08x)\n",shortName(szModName),hMods[i]);
+					sprintf(mbuf," + %s (no info available)\n",shortName(szModName));
 					outString(hPipe,mbuf);
 				}
 			}
@@ -1166,6 +1168,10 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	}
 
 	outString(hPipe,"\n");
+
+
+	sprintf(mbuf," welcome to doxastica %s\n",VERSTRING);
+	OutputDebugString(mbuf);
 
 	sprintf(mbuf,"INITFINISHED\0");
 	outString(hPipe,mbuf);

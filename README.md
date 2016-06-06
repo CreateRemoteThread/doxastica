@@ -1,5 +1,17 @@
-doxastica
-=========
+Table of Contents
+
+* [Introduction](#Introduction)
+* [Quickstart Tutorials](#Quickstart Tutorials)
+  * [tutorial: ut99](#tutorial: ut99)
+  * [tutorial: save to disk](#tutorial: save to disk)
+* [Lua Engine](#Lua Engine)
+  * [lua default variables](#lua default variables)
+  * [lua commands listing](#lua commands listing)
+* [Development](README_FILES/build.md)
+* [Credits](#Credits)
+
+Introduction
+============
 
 doxastica is an injectable lua interpreter, designed to make interacting
 with game processes easier. it contains two^H^H^Hthree primary components:
@@ -29,7 +41,11 @@ thing).
 - compared to a debugger, you're inside a process' memory. this means you are
 fast as shit for certain operations (but crippled in others).
 
-## tutorial: 500 hp in unreal tournament 99
+Quickstart Tutorials
+====================
+
+tutorial: ut99
+--------------
 
 the goal of our quickstart tutorial will be the hack the unral tournament goty
 edition from steam (http://store.steampowered.com/app/13240/). we will try to
@@ -79,7 +95,23 @@ time we hit a key.
 
 now, by pressing "p" for half a second, your health will be restored to 500 :)
 
-## lua default variables
+tutorial: save to disk
+----------------------
+
+sometimes, you want to wait for something to unpack in memory and then save it
+to disk. currently, you can do this with lua's file api:
+
+    file = io.open("out.bin","w")
+    data = memread(0x00401000,0x101010)
+    io.output(file)
+    io.write(data)
+    io.close(file)
+
+Lua Engine
+==========
+
+lua default variables
+---------------------
 
 upon starting a lua instance, several default variables are initialized. these
 are:
@@ -95,15 +127,13 @@ are:
   - ati_d3d11_dll.start
   - ati_d3d11_dll.size
 
-## lua commands listing
+lua commands listing
+--------------------
 
 [Click here for a reference of lua commands supported by doxastica](README_FILES/luaref.md)
 
-## compilation
-
-[Click here for a build guide](README_FILES/build.md)
-
-## credits
+Credits
+=======
 
 this code borrows heavily from other sources. these are listed below:
 

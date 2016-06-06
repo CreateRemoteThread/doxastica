@@ -252,6 +252,7 @@ int cs_m_who_accesses(lua_State *L);
 int cs_m_finish_who_writes_to(lua_State *L);
 
 int cs_dump_everything_we_can(lua_State *L);
+int cs_dump_module(lua_State *L);
 
 int protectCore(lua_State *L,int protectMode);
 

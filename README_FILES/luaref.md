@@ -39,6 +39,9 @@ of these were inspired by functionality in cheat engine:
   write to existing directories. remember that the current directory will be
   based on the target process' executable (aka specify a full path you lazy fuck)
 
+- void dump_module(module,save):
+  dumps a single module to disk in a single contiguous file.
+
 ### assembler
 
 doxastica uses the xedparse assembler library to provide both 32-bit and 64-bit
