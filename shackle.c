@@ -255,7 +255,7 @@ void iathook(UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress)
 	IMAGE_THUNK_DATA **nameChain = (IMAGE_THUNK_DATA **)(lpBase + pImportDir->Characteristics);
 	UINT_PTR *funcChain = (UINT_PTR *)(lpBase + pImportDir->FirstThunk);
 
-	sprintf(mbuf," [IAT] nameChain = %x, funcChain = %x\n",nameChain,funcChain);
+	sprintf(mbuf," [IAT] nameChain = %p, funcChain = %p\n",nameChain,funcChain);
 	OutputDebugString(mbuf);
 
 	// only works with loaded functions
@@ -264,7 +264,7 @@ void iathook(UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress)
 		i++;
 	}
 
-	sprintf(mbuf," [IAT] got it - 0x%x\n",&funcChain[i]);
+	sprintf(mbuf," [IAT] got it - %p\n",&funcChain[i]);
 	OutputDebugString(mbuf);
 
 	saveAddress[0] = funcChain[i];
@@ -1001,8 +1001,6 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	memset(globalHotkeyArray,0,sizeof( char * ) * 256);
 	int unhookThisThread = 0;
 
-	CreateThread(NULL,0,(LPTHREAD_START_ROUTINE )hotkeyThread,luaState,0,&threadId_hotkeys);
-
 	luaL_openlibs(luaState);
 	// lua_register(luaState,"test_lua",test_lua);
 	lua_register(luaState,"print",cs_print);
@@ -1112,6 +1110,8 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	luaL_dostring(luaState,"IDRETRY = 4");
 	luaL_dostring(luaState,"IDTRYAGAIN = 10");
 	luaL_dostring(luaState,"IDYES = 6");
+	
+	CreateThread(NULL,0,(LPTHREAD_START_ROUTINE )hotkeyThread,luaState,0,&threadId_hotkeys);
 
 	int exitToLoop = 0;
 
@@ -1130,7 +1130,7 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	lua_pushinteger(luaState,pid);
 	lua_setglobal(luaState,"__pid");
 
-	sprintf(mbuf," - __hpipe = 0x%x | __hProcess = 0x%x | __pid = %d -\n",hPipe,hProcess,pid);
+	sprintf(mbuf," - __hpipe = %p | __hProcess = %p | __pid = %d -\n",hPipe,hProcess,pid);
 	outString(hPipe,mbuf);
 
 	// collect process modules for resolver
@@ -1148,9 +1148,9 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 			{
 				if ( GetModuleInformation(hProcess,hMods[i],&modInfo,sizeof(modInfo)) )
 				{
-					sprintf(mbuf," + %s (0x%08x, size:%x) (entry:0x%0x)\n",shortName(szModName),hMods[i],modInfo.SizeOfImage,modInfo.EntryPoint);
+					sprintf(mbuf," + %s (0x%p, size:%x) (entry:0x%p)\n",shortName(szModName),hMods[i],modInfo.SizeOfImage,modInfo.EntryPoint);
 					outString(hPipe,mbuf);
-					sprintf(mbuf,"%s = {start=%d,size=%d}",shortName(szModName),hMods[i],modInfo.SizeOfImage);
+					sprintf(mbuf,"%s = {start=%p,size=%x}",shortName(szModName),hMods[i],modInfo.SizeOfImage);
 					int bufptr = 0;
 					for(;mbuf[bufptr] != '\0';bufptr++)
 					{
@@ -1638,7 +1638,7 @@ static int cs_memcpy(lua_State *L)
 	{
 		char mbuf[1024];
 		memcpy(addrTo,addrFrom,size);
-		sprintf(mbuf," [NFO] copied %d bytes from 0x%x to 0x%x\n",size,addrFrom,addrTo);
+		sprintf(mbuf," [NFO] copied %d bytes from 0x%p to 0x%p\n",size,addrFrom,addrTo);
 		outString(hPipe,mbuf);
 	}
 	__except( readfilter(GetExceptionCode(), GetExceptionInformation()) )

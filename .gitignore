@@ -1,3 +1,5 @@
+docs/*.docx
+
 # Object files
 *.o
 *.ko
