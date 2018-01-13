@@ -294,7 +294,7 @@ int cs_listthreads(lua_State *L)
 				{
 					threadPaused = 'N';
 				}
-				sprintf(mbuf," + %d [pause:%c] [addr:0x%x]\n",te32.th32ThreadID,threadPaused,pk_Thread->pStartAddress);	
+				sprintf(mbuf," + %d [pause:%c] [addr:0x%p]\n",te32.th32ThreadID,threadPaused,pk_Thread->pStartAddress);	
 			}
 			else
 			{
@@ -839,7 +839,7 @@ int cs_dump_everything_we_can(lua_State *L)
 			VirtualQuery((LPCVOID )newReadStart,&mbi,sizeof(MEMORY_BASIC_INFORMATION));
 		}
 
-		sprintf(filebuf,"%s/0x%p-0x%p.out",savedirectory,readStart,newReadStart);
+		sprintf(filebuf,"%s/0x%p-0x%p.out",savedirectory,(void *)readStart,(void *)newReadStart);
 		FILE *o = fopen(filebuf,"wb");
 		fwrite((char *)readStart,1,newReadStart - readStart,o);
 		fclose(o);

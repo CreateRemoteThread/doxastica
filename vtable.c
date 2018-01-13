@@ -30,7 +30,7 @@ int cs_search_vtable(lua_State *L)
 		#else
 			UINT_PTR *addrFrom = (UINT_PTR *)((int )lua_tointeger(L,1) & 0xFFFFFF00);
 		#endif
-		sprintf(mbuf," [NFO] searching vtable backward from %x\n",addrFrom);
+		sprintf(mbuf," [NFO] searching vtable backward from 0x%p\n",addrFrom);
 		outString(hPipe,mbuf);
 		MEMORY_BASIC_INFORMATION mbi;
 

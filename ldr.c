@@ -512,7 +512,7 @@ int main(int argc,char **argv)
 	PEB_ARCHI globalPEB;
 
 	NtQueryInformationProcess (hProcess, 0, (PVOID )(&pib), sizeof (pib),& bW);
-	printf(" [INFO] pib.PebBaseAddress = 0x%x (size of field is %d)\n", pib.PebBaseAddress, sizeof(pib.PebBaseAddress));
+	printf(" [INFO] pib.PebBaseAddress = 0x%p (size of field is %d)\n", pib.PebBaseAddress, sizeof(pib.PebBaseAddress));
 
 	ReadProcessMemory (hProcess, pib.PebBaseAddress, &globalPEB, sizeof (globalPEB), &bR);
 	if (bR != sizeof (globalPEB))
@@ -525,7 +525,7 @@ int main(int argc,char **argv)
 		return 0;
     }
 
-	printf(" [INFO] peb.ImageBaseAddress = %p\n", globalPEB.ImageBaseAddress);
+	printf(" [INFO] peb.ImageBaseAddress = %p\n", (void *)(globalPEB.ImageBaseAddress));
 
 	UINT_PTR entryPoint = guessExecutableEntryPoint (hProcess, globalPEB.ImageBaseAddress);
 	printf(" [INFO] entryPoint = 0x%8x\n", entryPoint);
