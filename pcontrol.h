@@ -69,11 +69,13 @@ enum THREAD_STATE
 
 #pragma pack(push,4)
 
+/*
 struct CLIENT_ID
 {
     HANDLE UniqueProcess; // Process ID
     HANDLE UniqueThread;  // Thread ID
 };
+*/
 
 struct SYSTEM_THREAD
 {

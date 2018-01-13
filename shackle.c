@@ -17,6 +17,13 @@
 #include "vtable.h"
 #include "xedparse\src\XEDParse.h"
 
+FILE _iob[] = {*stdin, *stdout, *stderr};
+
+extern "C" FILE * __cdecl __iob_func(void)
+{
+    return _iob;
+}
+
 #define WIN32_LEAN_AND_MEAN
 
 #define EOFMARK		"<eof>"

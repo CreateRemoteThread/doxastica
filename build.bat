@@ -93,11 +93,10 @@ IF [%1]==[peek] cl /Zi /c /Tp peek.c
 IF [%1]==[peek] link /out:peek.exe peek.obj
 
 IF [%1] EQU [] ECHO build {target}. Valid targets are:
-IF [%1] EQU [] ECHO ++ bea32
-IF [%1] EQU [] ECHO ++ bea64
-IF [%1] EQU [] ECHO ++ shackle32
-IF [%1] EQU [] ECHO ++ shackle64
-IF [%1] EQU [] ECHO ++ ldr32
-IF [%1] EQU [] ECHO ++ ldr64
+IF [%1] EQU [] ECHO ++ bea{32,64} [PREREQ: BEA Disassembly]
+IF [%1] EQU [] ECHO ++ lua{32,64} [PREREQ: LUA Scripting]
+IF [%1] EQU [] ECHO ++ xed{32,64} [PREREQ: XED Assembler]
+IF [%1] EQU [] ECHO ++ shackle{32,64}
+IF [%1] EQU [] ECHO ++ ldr{32,64}
 IF [%1] EQU [] ECHO ++ peek
-IF [%1] EQU [] ECHO if you get something about x86 vs x64, ensure you've recompiled bea for your target architecture.
+IF [%1] EQU [] ECHO if you get something about x86 vs x64, ensure you've recompiled bea/lua for your target architecture.
