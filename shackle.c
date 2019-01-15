@@ -9,12 +9,14 @@
 #include <signal.h>
 #include <imagehlp.h>
 #include <ctype.h>
+#include <winnt.h>
 #include <winsock.h>
 #include "shackle.h"
 #include "search.h"
 #include "ptrscan.h"
 #include "pcontrol.h"
 #include "vtable.h"
+#include "wincrypt.h"
 #include "xedparse\src\XEDParse.h"
 
 FILE _iob[] = {*stdin, *stdout, *stderr};
@@ -59,9 +61,40 @@ typedef DWORD (WINAPI * _MessageBoxA) (DWORD, LPCVOID, LPCVOID, DWORD);
 typedef DWORD (WINAPI * _send) (DWORD, char *, DWORD, DWORD);
 typedef DWORD (WINAPI * _WSASend) (SOCKET, UINT_PTR, DWORD, UINT_PTR, DWORD, UINT_PTR, UINT_PTR);
 
+/*
+BOOL CryptEncrypt(
+  HCRYPTKEY  hKey,
+  HCRYPTHASH hHash,
+  BOOL       Final,
+  DWORD      dwFlags,
+  BYTE       *pbData,
+  DWORD      *pdwDataLen,
+  DWORD      dwBufLen
+);
+*/
+typedef DWORD (WINAPI * _CryptEncrypt) (HCRYPTKEY , HCRYPTHASH, BOOL,DWORD,BYTE *, DWORD *,DWORD);
+
+/*
+BOOL RSAENH_CPDecrypt
+ (
+  HCRYPTPROV hProv,
+  HCRYPTKEY  hKey,
+  HCRYPTHASH hHash,
+  BOOL       Final,
+  DWORD      dwFlags,
+  BYTE*      pbData,
+  DWORD*     pdwDataLen
+ )
+*/
+
+
+ 
+ 
+
 _MessageBoxA oldMessageBox = NULL;
 _send oldSend = NULL;
 _send oldRecv = NULL;
+_CryptEncrypt oldCryptEncrypt = NULL;
 _WSASend oldWSASend = NULL;
 
 char *globalHotkeyArray[256];
@@ -69,6 +102,8 @@ int globalSleepTime = 500;
 
 CRITICAL_SECTION packetCaptureSection = {0};
 FILE *packetCapture = NULL;
+
+HANDLE hPacketCapture = NULL;
 
 /*
 // okay, what's the function prelude of newmessagebox?
@@ -148,6 +183,18 @@ extern "C" unsigned long __stdcall newRecv(unsigned long socket, char *buf, unsi
 	fwrite(buf,1,len,packetCapture);
 	LeaveCriticalSection(&packetCaptureSection);
 	return i;
+}
+
+extern "C" __declspec(dllexport) BOOL __stdcall newCryptEncrypt(HCRYPTKEY key, HCRYPTHASH hash, BOOL final, DWORD flags, BYTE *buf, DWORD *buflen,DWORD dwBufLen);
+extern "C" BOOL __stdcall newCryptEncrypt(HCRYPTKEY key, HCRYPTHASH hash, BOOL final, DWORD flags, BYTE *buf, DWORD *buflen,DWORD dwBufLen)
+{
+	DWORD fuckX;
+	EnterCriticalSection(&packetCaptureSection);
+	WriteFile(hPacketCapture,buflen,4,&fuckX,NULL);
+	WriteFile(hPacketCapture,buf,buflen[0],&fuckX,NULL);
+	LeaveCriticalSection(&packetCaptureSection);
+	BOOL b = oldCryptEncrypt(key,hash,final,flags,buf,buflen,dwBufLen);
+	return b;
 }
 
 // dirty hack we use to enable short patching on 64-bit
@@ -276,6 +323,9 @@ void iathook(UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress)
 
 	VirtualProtect(&funcChain[i],sizeof(UINT_PTR),oldProtect,&oldProtect);
 
+	sprintf(mbuf," [IAT] replaced IAT pointer to %p with %p\n",saveAddress[0],addressTo);
+	OutputDebugString(mbuf);
+
 	return;
 }
 
@@ -328,6 +378,7 @@ void hook(UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress)
 
 	#if ARCHI == 32
 		codeCave[totalSize] = '\xE9';
+		// codeCave[totalSize] = '\xE8'; // call, not jmp
 		DWORD *cp = (DWORD *)((unsigned long )codeCave + totalSize + 1);
 		cp[0] = (unsigned long )(addressFrom + totalSize - ((unsigned long )codeCave + totalSize + 5));
 		saveAddress[0] = (unsigned long )codeCave;
@@ -496,13 +547,15 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
 
 		// iathook((UINT_PTR )GetProcAddress(LoadLibrary("ws2_32"),"WSASend"),(UINT_PTR )&newWSASend,(UINT_PTR *)&oldWSASend);
 		InitializeCriticalSection(&packetCaptureSection);
-		packetCapture = fopen((char *)fnameBuf,"wb");
+		// packetCapture = fopen((char *)fnameBuf,"wb");
+		hPacketCapture = CreateFile("\\\\.\\pipe\\mynamedpipe",GENERIC_READ|GENERIC_WRITE,0,NULL,OPEN_EXISTING,0,NULL);
 
-		iathook((UINT_PTR )GetProcAddress(LoadLibrary("ws2_32"),"send"),(UINT_PTR )&newSend,(UINT_PTR *)&oldSend);
-		iathook((UINT_PTR )GetProcAddress(LoadLibrary("ws2_32"),"recv"),(UINT_PTR )&newRecv,(UINT_PTR *)&oldRecv);
-		DeleteCriticalSection(&packetCaptureSection);
+		// iathook((UINT_PTR )GetProcAddress(LoadLibrary("ws2_32"),"send"),(UINT_PTR )&newSend,(UINT_PTR *)&oldSend);
+		hook((UINT_PTR )GetProcAddress(LoadLibrary("CRYPTSP"),"CryptEncrypt"),(UINT_PTR )&newCryptEncrypt,(UINT_PTR *)&oldCryptEncrypt);
+		// iathook((UINT_PTR )GetProcAddress(LoadLibrary("ws2_32"),"recv"),(UINT_PTR )&newRecv,(UINT_PTR *)&oldRecv);
+		// DeleteCriticalSection(&packetCaptureSection);
 
-		fclose(packetCapture);
+		// fclose(packetCapture);
 		
 		return TRUE;
       }
@@ -1208,6 +1261,10 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 		}
 		*/
 
+		OutputDebugString("OK, LUA stack flushed\n");
+		
+		/*
+
 		if( luaL_loadbuffer(luaState,pchRequest,strlen(pchRequest),"IPCInput") == 0 )
 		{
 			if( lua_pcall(luaState,0,0,0) )
@@ -1219,8 +1276,10 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 		{
 			cs_error(luaState,hPipe);
 		}
-
-		// int status = luaL_dostring(luaState,pchRequest);
+		
+		*/
+		
+		int status = luaL_dostring(luaState,pchRequest);
 
 		fSuccess = WriteFile(hPipe,pchReply,cbReplyBytes,&cbWritten,NULL);
 		if (!fSuccess || cbReplyBytes != cbWritten)
@@ -1230,7 +1289,9 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 			break;
 		}
 
-		lua_settop(luaState, 0);
+		OutputDebugString("OK, peek replied to...\n");
+
+		// lua_settop(luaState, 0);
 	}
 
 	/*
@@ -1846,7 +1907,6 @@ static int cs_hexdump(lua_State *L)
 		outString(hPipe,currentLine);
 		outString(hPipe,"\n");
 	}
-	
 	return 0;
 }
 
