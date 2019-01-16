@@ -73,6 +73,7 @@ BOOL CryptEncrypt(
 );
 */
 typedef DWORD (WINAPI * _CryptEncrypt) (HCRYPTKEY , HCRYPTHASH, BOOL,DWORD,BYTE *, DWORD *,DWORD);
+typedef DWORD (WINAPI * _CryptDecrypt) (HCRYPTKEY , HCRYPTHASH, BOOL,DWORD,BYTE *, DWORD *,DWORD);
 
 /*
 BOOL RSAENH_CPDecrypt
@@ -95,6 +96,7 @@ _MessageBoxA oldMessageBox = NULL;
 _send oldSend = NULL;
 _send oldRecv = NULL;
 _CryptEncrypt oldCryptEncrypt = NULL;
+_CryptDecrypt oldCryptDecrypt = NULL;
 _WSASend oldWSASend = NULL;
 
 char *globalHotkeyArray[256];
@@ -185,15 +187,89 @@ extern "C" unsigned long __stdcall newRecv(unsigned long socket, char *buf, unsi
 	return i;
 }
 
+int keyExported = 0;
+
 extern "C" __declspec(dllexport) BOOL __stdcall newCryptEncrypt(HCRYPTKEY key, HCRYPTHASH hash, BOOL final, DWORD flags, BYTE *buf, DWORD *buflen,DWORD dwBufLen);
 extern "C" BOOL __stdcall newCryptEncrypt(HCRYPTKEY key, HCRYPTHASH hash, BOOL final, DWORD flags, BYTE *buf, DWORD *buflen,DWORD dwBufLen)
 {
 	DWORD fuckX;
 	EnterCriticalSection(&packetCaptureSection);
-	WriteFile(hPacketCapture,buflen,4,&fuckX,NULL);
+	WriteFile(hPacketCapture,buflen,4,&fuckX,NULL); // now goes over named pipe
+	WriteFile(hPacketCapture,buf,buflen[0],&fuckX,NULL);
+	if(keyExported == 0)
+	{
+		keyExported = 1;
+		
+	}
+	LeaveCriticalSection(&packetCaptureSection);
+	
+	BOOL b = oldCryptEncrypt(key,hash,final,flags,buf,buflen,dwBufLen);
+	return b;
+}
+
+char *keyBlob;
+DWORD keyBlobLen = 1024;
+
+extern "C" __declspec(dllexport) BOOL __stdcall newCryptDecrypt(HCRYPTKEY key, HCRYPTHASH hash, BOOL final, DWORD flags, BYTE *buf, DWORD *buflen,DWORD dwBufLen);
+extern "C" BOOL __stdcall newCryptDecrypt(HCRYPTKEY key, HCRYPTHASH hash, BOOL final, DWORD flags, BYTE *buf, DWORD *buflen,DWORD dwBufLen)
+{
+	DWORD fuckX;
+	BOOL b = oldCryptDecrypt(key,hash,final,flags,buf,buflen,dwBufLen);
+	EnterCriticalSection(&packetCaptureSection);
+	WriteFile(hPacketCapture,buflen,4,&fuckX,NULL); // now goes over named pipe
 	WriteFile(hPacketCapture,buf,buflen[0],&fuckX,NULL);
 	LeaveCriticalSection(&packetCaptureSection);
-	BOOL b = oldCryptEncrypt(key,hash,final,flags,buf,buflen,dwBufLen);
+	if(keyExported == 0)
+	{
+		HCRYPTPROV hProv = 0;
+		HCRYPTKEY hExchangeKeyPair = 0;
+		keyExported = 1;
+		keyBlob = (char *)malloc(1024);
+		
+		/*
+		0:000:x86> dd esp
+		008ff0d0  67a4c46f 67c7fc08 00000000 67bf2554
+		008ff0e0  00000001 f0000000 68043a30 67c7c4c8
+		008ff0f0  00000000 00000028 77773779 07c19507
+		008ff100  009e0000 00000028 008ff360 00000028
+		008ff110  008ff368 00000150 777723b0 00000119
+		008ff120  00000088 02b1e6c8 fffffeb0 00000009
+		008ff130  fffffee7 009e04b8 00000ea0 06040002
+		008ff140  00000000 a90400ad 009e0270 00000003
+		0:000:x86> db 67bf2554
+		67bf2554  4d 69 63 72 6f 73 6f 66-74 20 45 6e 68 61 6e 63  Microsoft Enhanc
+		67bf2564  65 64 20 43 72 79 70 74-6f 67 72 61 70 68 69 63  ed Cryptographic
+		67bf2574  20 50 72 6f 76 69 64 65-72 20 76 31 2e 30 00 00   Provider v1.0..
+		67bf2584  00 00 00 00 00 00 00 00-73 23 69 3a 43 72 79 70  ........s#i:Cryp
+		67bf2594  74 42 69 6e 61 72 79 54-6f 53 74 72 69 6e 67 00  tBinaryToString.
+		67bf25a4  00 00 00 00 4e 69 69 00-73 69 3a 43 72 79 70 74  ....Nii.si:Crypt
+		67bf25b4  53 74 72 69 6e 67 54 6f-42 69 6e 61 72 79 00 00  StringToBinary..
+		67bf25c4  00 00 00 00 73 23 7c 69-00 00 00 00 43 72 79 70  ....s#|i....Cryp
+		*/
+		
+		if(!CryptAcquireContext( &hProv, "Microsoft Enhanced Cryptographic Provider v1.0", 0, PROV_RSA_AES, 0 ))
+		{
+			MessageBox(0,"Cannot acquire crypto context","fuck",MB_OK);
+			return b;
+		}
+		
+		CryptGetUserKey( hProv, AT_KEYEXCHANGE, &hExchangeKeyPair);
+		
+		if(CryptExportKey(key,hExchangeKeyPair,PRIVATEKEYBLOB,0,(BYTE *)keyBlob,&keyBlobLen) != 0)
+		{
+			MessageBox(0,"GOT KEY!","GOT KEY!",MB_OK);
+
+			HANDLE keyDump = CreateFile("c:\\projects\\KEYBLOB.bin",GENERIC_READ|GENERIC_WRITE,0,NULL,CREATE_ALWAYS,0,NULL);
+			WriteFile(keyDump,keyBlob,keyBlobLen,&fuckX,NULL);
+			CloseHandle(keyDump);
+		}
+		else
+		{
+			MessageBox(0,"NO KEY!","NO KEY!",MB_OK);
+			return b;
+		}
+	}
+
 	return b;
 }
 
@@ -552,6 +628,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
 
 		// iathook((UINT_PTR )GetProcAddress(LoadLibrary("ws2_32"),"send"),(UINT_PTR )&newSend,(UINT_PTR *)&oldSend);
 		hook((UINT_PTR )GetProcAddress(LoadLibrary("CRYPTSP"),"CryptEncrypt"),(UINT_PTR )&newCryptEncrypt,(UINT_PTR *)&oldCryptEncrypt);
+		hook((UINT_PTR )GetProcAddress(LoadLibrary("CRYPTSP"),"CryptDecrypt"),(UINT_PTR )&newCryptDecrypt,(UINT_PTR *)&oldCryptDecrypt);
 		// iathook((UINT_PTR )GetProcAddress(LoadLibrary("ws2_32"),"recv"),(UINT_PTR )&newRecv,(UINT_PTR *)&oldRecv);
 		// DeleteCriticalSection(&packetCaptureSection);
 

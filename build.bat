@@ -42,7 +42,7 @@ IF [%1]==[shackle32] cl /Zi /c /EHsc /I lua53 /Fosearch32.obj /Tp search.c
 IF [%1]==[shackle32] cl /Zi /c /EHsc /I lua53 /Fovtable32.obj /Tp vtable.c
 IF [%1]==[shackle32] cl /Zi /c /I beainclude /EHsc /I lua53 /Fopcontrol32.obj /Tp pcontrol.c
 IF [%1]==[shackle32] cl /Zi /c /I lua53 /I beainclude /EHsc /Foshackle32.obj /Tp shackle.c
-IF [%1]==[shackle32] link /DEF:shackle.def /DLL /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:shackle32.dll shackle32.obj vtable32.obj ptrscan32.obj beasrc/BeaEngine32.obj lua32/*.obj user32.lib psapi.lib xed32/*.obj search32.obj pcontrol32.obj xedparse/xed2/lib/libxed_x86.lib imagehlp.lib
+IF [%1]==[shackle32] link /DEF:shackle.def /DLL /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:shackle32.dll shackle32.obj vtable32.obj ptrscan32.obj beasrc/BeaEngine32.obj lua32/*.obj user32.lib psapi.lib xed32/*.obj search32.obj pcontrol32.obj xedparse/xed2/lib/libxed_x86.lib imagehlp.lib advapi32.lib
 
 IF [%1]==[bea32] cd beasrc
 IF [%1]==[bea32] cl /Zi /c /I ../beainclude /FoBeaEngine32.obj /Tp BeaEngine.c
