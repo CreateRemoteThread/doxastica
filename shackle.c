@@ -105,7 +105,8 @@ int globalSleepTime = 500;
 CRITICAL_SECTION packetCaptureSection = {0};
 FILE *packetCapture = NULL;
 
-HANDLE hPacketCapture = NULL;
+HANDLE hPacketCapture_ENCRYPT = NULL;
+HANDLE hPacketCapture_DECRYPT = NULL;
 
 /*
 // okay, what's the function prelude of newmessagebox?
@@ -194,8 +195,8 @@ extern "C" BOOL __stdcall newCryptEncrypt(HCRYPTKEY key, HCRYPTHASH hash, BOOL f
 {
 	DWORD fuckX;
 	EnterCriticalSection(&packetCaptureSection);
-	WriteFile(hPacketCapture,buflen,4,&fuckX,NULL); // now goes over named pipe
-	WriteFile(hPacketCapture,buf,buflen[0],&fuckX,NULL);
+	WriteFile(hPacketCapture_ENCRYPT,buflen,4,&fuckX,NULL); // now goes over named pipe
+	WriteFile(hPacketCapture_ENCRYPT,buf,buflen[0],&fuckX,NULL);
 	if(keyExported == 0)
 	{
 		keyExported = 1;
@@ -216,8 +217,8 @@ extern "C" BOOL __stdcall newCryptDecrypt(HCRYPTKEY key, HCRYPTHASH hash, BOOL f
 	DWORD fuckX;
 	BOOL b = oldCryptDecrypt(key,hash,final,flags,buf,buflen,dwBufLen);
 	EnterCriticalSection(&packetCaptureSection);
-	WriteFile(hPacketCapture,buflen,4,&fuckX,NULL); // now goes over named pipe
-	WriteFile(hPacketCapture,buf,buflen[0],&fuckX,NULL);
+	WriteFile(hPacketCapture_DECRYPT,buflen,4,&fuckX,NULL); // now goes over named pipe
+	WriteFile(hPacketCapture_DECRYPT,buf,buflen[0],&fuckX,NULL);
 	LeaveCriticalSection(&packetCaptureSection);
 	if(keyExported == 0)
 	{
@@ -247,7 +248,7 @@ extern "C" BOOL __stdcall newCryptDecrypt(HCRYPTKEY key, HCRYPTHASH hash, BOOL f
 		67bf25c4  00 00 00 00 73 23 7c 69-00 00 00 00 43 72 79 70  ....s#|i....Cryp
 		*/
 		
-		if(!CryptAcquireContext( &hProv, "Microsoft Enhanced Cryptographic Provider v1.0", 0, PROV_RSA_AES, 0 ))
+		if(!CryptAcquireContext( &hProv, NULL, NULL, PROV_RSA_FULL, 0))
 		{
 			MessageBox(0,"Cannot acquire crypto context","fuck",MB_OK);
 			return b;
@@ -255,7 +256,7 @@ extern "C" BOOL __stdcall newCryptDecrypt(HCRYPTKEY key, HCRYPTHASH hash, BOOL f
 		
 		CryptGetUserKey( hProv, AT_KEYEXCHANGE, &hExchangeKeyPair);
 		
-		if(CryptExportKey(key,hExchangeKeyPair,PRIVATEKEYBLOB,0,(BYTE *)keyBlob,&keyBlobLen) != 0)
+		if(CryptExportKey(key,0,7,0,(BYTE *)keyBlob,&keyBlobLen) != 0)
 		{
 			MessageBox(0,"GOT KEY!","GOT KEY!",MB_OK);
 
@@ -624,7 +625,8 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
 		// iathook((UINT_PTR )GetProcAddress(LoadLibrary("ws2_32"),"WSASend"),(UINT_PTR )&newWSASend,(UINT_PTR *)&oldWSASend);
 		InitializeCriticalSection(&packetCaptureSection);
 		// packetCapture = fopen((char *)fnameBuf,"wb");
-		hPacketCapture = CreateFile("\\\\.\\pipe\\mynamedpipe",GENERIC_READ|GENERIC_WRITE,0,NULL,OPEN_EXISTING,0,NULL);
+		hPacketCapture_ENCRYPT = CreateFile("\\\\.\\pipe\\mynamedpipe-encrypt",GENERIC_READ|GENERIC_WRITE,0,NULL,OPEN_EXISTING,0,NULL);
+		hPacketCapture_DECRYPT = CreateFile("\\\\.\\pipe\\mynamedpipe-decrypt",GENERIC_READ|GENERIC_WRITE,0,NULL,OPEN_EXISTING,0,NULL);
 
 		// iathook((UINT_PTR )GetProcAddress(LoadLibrary("ws2_32"),"send"),(UINT_PTR )&newSend,(UINT_PTR *)&oldSend);
 		hook((UINT_PTR )GetProcAddress(LoadLibrary("CRYPTSP"),"CryptEncrypt"),(UINT_PTR )&newCryptEncrypt,(UINT_PTR *)&oldCryptEncrypt);
@@ -1338,10 +1340,8 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 		}
 		*/
 
-		OutputDebugString("OK, LUA stack flushed\n");
+		// OutputDebugString("OK, LUA stack flushed\n");
 		
-		/*
-
 		if( luaL_loadbuffer(luaState,pchRequest,strlen(pchRequest),"IPCInput") == 0 )
 		{
 			if( lua_pcall(luaState,0,0,0) )
@@ -1354,9 +1354,7 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 			cs_error(luaState,hPipe);
 		}
 		
-		*/
-		
-		int status = luaL_dostring(luaState,pchRequest);
+		// int status = luaL_dostring(luaState,pchRequest);
 
 		fSuccess = WriteFile(hPipe,pchReply,cbReplyBytes,&cbWritten,NULL);
 		if (!fSuccess || cbReplyBytes != cbWritten)

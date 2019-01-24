@@ -10,18 +10,32 @@ VOID GetAnswerToRequest(LPTSTR, LPTSTR, LPDWORD);
  
 // microsoft example : https://docs.microsoft.com/en-us/windows/desktop/ipc/multithreaded-pipe-server :)
  
-int _tmain(VOID) 
+ HANDLE hSave = NULL;
+ 
+int main(int argc, char **argv)
 { 
    BOOL   fConnected = FALSE; 
    DWORD  dwThreadId = 0; 
    HANDLE hPipe = INVALID_HANDLE_VALUE, hThread = NULL; 
-   LPTSTR lpszPipename = TEXT("\\\\.\\pipe\\mynamedpipe"); 
+   char *lpszPipename = (char *)malloc(1024);
+   char *filename = (char *)malloc(1024);
+   // LPTSTR lpszPipename = TEXT("\\\\.\\pipe\\mynamedpipe-%s");
+   sprintf(filename,"save-%s.bin",argv[1]);
+   sprintf(lpszPipename,"\\\\.\\pipe\\mynamedpipe-%s",argv[1]);
  
 // The main loop creates an instance of the named pipe and 
 // then waits for a client to connect to it. When the client 
 // connects, a thread is created to handle communications 
 // with that client, and this loop is free to wait for the
 // next client connect request. It is an infinite loop.
+
+   hSave = CreateFile(filename,                // name of the write
+                       GENERIC_WRITE,          // open for writing
+                       0,                      // do not share
+                       NULL,                   // default security
+                       CREATE_NEW,             // create new file only
+                       FILE_ATTRIBUTE_NORMAL,  // normal file
+                       NULL);                  // no attr. template
  
    for (;;) 
    { 
@@ -159,23 +173,11 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam)
       }
 
    // Process the incoming message.
-      GetAnswerToRequest(pchRequest, pchReply, &cbReplyBytes); 
- 
-   // Write the reply to the pipe. 
-   /*
-      fSuccess = WriteFile( 
-         hPipe,        // handle to pipe 
-         pchReply,     // buffer to write from 
-         cbReplyBytes, // number of bytes to write 
-         &cbWritten,   // number of bytes written 
-         NULL);        // not overlapped I/O 
-
-      if (!fSuccess || cbReplyBytes != cbWritten)
-      {   
-          _tprintf(TEXT("InstanceThread WriteFile failed, GLE=%d.\n"), GetLastError()); 
-          break;
-      }
-	  */
+   DWORD fuck;
+   WriteFile(hSave,&cbBytesRead,4, &fuck,NULL);
+   WriteFile(hSave,pchRequest,cbBytesRead, &fuck,NULL);
+   
+   _tprintf(TEXT("Read OK: %d bytes"),cbBytesRead);
 	  
   }
 
@@ -192,26 +194,4 @@ DWORD WINAPI InstanceThread(LPVOID lpvParam)
 
    printf("InstanceThread exitting.\n");
    return 1;
-}
-
-VOID GetAnswerToRequest( LPTSTR pchRequest, 
-                         LPTSTR pchReply, 
-                         LPDWORD pchBytes )
-// This routine is a simple function to print the client request to the console
-// and populate the reply buffer with a default data string. This is where you
-// would put the actual client request processing code that runs in the context
-// of an instance thread. Keep in mind the main thread will continue to wait for
-// and receive other client connections while the instance thread is working.
-{
-    _tprintf( TEXT("Client Request String:\"%s\"\n"), pchRequest );
-
-    // Check the outgoing message to make sure it's not too long for the buffer.
-    if (FAILED(StringCchCopy( pchReply, BUFSIZE, TEXT("default answer from server") )))
-    {
-        *pchBytes = 0;
-        pchReply[0] = 0;
-        printf("StringCchCopy failed, no outgoing message.\n");
-        return;
-    }
-    *pchBytes = (lstrlen(pchReply)+1)*sizeof(TCHAR);
 }
