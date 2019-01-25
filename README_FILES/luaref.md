@@ -47,6 +47,10 @@ of these were inspired by functionality in cheat engine:
   the argument should be dllname.dll!function. error will be printed in peek if
   the function can't be resolved. no output probably means you didn't print the
   result.
+  
+- string unresolve(int)
+  logical inverse of resolve. takes a resolved offset and produces which function
+  is there, if one exists.
 
 ### assembler
 
