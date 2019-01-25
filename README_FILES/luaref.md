@@ -41,6 +41,12 @@ of these were inspired by functionality in cheat engine:
 
 - void dump_module(module,save):
   dumps a single module to disk in a single contiguous file.
+  
+- int resolve(module):
+  resolves the function specified as an argument, and returns it as an integer.
+  the argument should be dllname.dll!function. error will be printed in peek if
+  the function can't be resolved. no output probably means you didn't print the
+  result.
 
 ### assembler
 

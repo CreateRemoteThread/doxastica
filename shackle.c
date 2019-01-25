@@ -88,7 +88,9 @@ BOOL RSAENH_CPDecrypt
  )
 */
 
+typedef int _PyRun_SimpleString (char *);
 
+_PyRun_SimpleString real_PyRun_SimpleString = NULL;
  
  
 
@@ -584,6 +586,8 @@ void hook(UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress)
 DWORD threadId = 0;
 DWORD threadId_hotkeys = 0;
 
+
+
 BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
 {
 	SYSTEMTIME lt = {0};
@@ -623,14 +627,15 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
 		// hook((UINT_PTR )GetProcAddress(LoadLibrary("user32"),"MessageBoxA"),(UINT_PTR )&newMessageBox,(UINT_PTR *)&oldMessageBox);
 
 		// iathook((UINT_PTR )GetProcAddress(LoadLibrary("ws2_32"),"WSASend"),(UINT_PTR )&newWSASend,(UINT_PTR *)&oldWSASend);
-		InitializeCriticalSection(&packetCaptureSection);
+		//InitializeCriticalSection(&packetCaptureSection);
 		// packetCapture = fopen((char *)fnameBuf,"wb");
-		hPacketCapture_ENCRYPT = CreateFile("\\\\.\\pipe\\mynamedpipe-encrypt",GENERIC_READ|GENERIC_WRITE,0,NULL,OPEN_EXISTING,0,NULL);
-		hPacketCapture_DECRYPT = CreateFile("\\\\.\\pipe\\mynamedpipe-decrypt",GENERIC_READ|GENERIC_WRITE,0,NULL,OPEN_EXISTING,0,NULL);
-
+		// hPacketCapture_ENCRYPT = CreateFile("\\\\.\\pipe\\mynamedpipe-encrypt",GENERIC_READ|GENERIC_WRITE,0,NULL,OPEN_EXISTING,0,NULL);
+		// hPacketCapture_DECRYPT = CreateFile("\\\\.\\pipe\\mynamedpipe-decrypt",GENERIC_READ|GENERIC_WRITE,0,NULL,OPEN_EXISTING,0,NULL);
+		
+		real_PyRun_SimpleString = (_PyRun_SimpleString )GetProcAddress(GetModuleHandle("python27.dll","PyRun_SimpleString");
 		// iathook((UINT_PTR )GetProcAddress(LoadLibrary("ws2_32"),"send"),(UINT_PTR )&newSend,(UINT_PTR *)&oldSend);
-		hook((UINT_PTR )GetProcAddress(LoadLibrary("CRYPTSP"),"CryptEncrypt"),(UINT_PTR )&newCryptEncrypt,(UINT_PTR *)&oldCryptEncrypt);
-		hook((UINT_PTR )GetProcAddress(LoadLibrary("CRYPTSP"),"CryptDecrypt"),(UINT_PTR )&newCryptDecrypt,(UINT_PTR *)&oldCryptDecrypt);
+		// hook((UINT_PTR )GetProcAddress(LoadLibrary("CRYPTSP"),"CryptEncrypt"),(UINT_PTR )&newCryptEncrypt,(UINT_PTR *)&oldCryptEncrypt);
+		// hook((UINT_PTR )GetProcAddress(LoadLibrary("CRYPTSP"),"CryptDecrypt"),(UINT_PTR )&newCryptDecrypt,(UINT_PTR *)&oldCryptDecrypt);
 		// iathook((UINT_PTR )GetProcAddress(LoadLibrary("ws2_32"),"recv"),(UINT_PTR )&newRecv,(UINT_PTR *)&oldRecv);
 		// DeleteCriticalSection(&packetCaptureSection);
 
