@@ -5,6 +5,8 @@ docs/*.docx
 *.ko
 *.obj
 *.elf
+*.lib
+**/*.lib
 
 # debug
 *.pdb

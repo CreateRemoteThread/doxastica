@@ -10,13 +10,13 @@
 #include <imagehlp.h>
 #include <ctype.h>
 #include <winnt.h>
-#include <winsock.h>
 #include "shackle.h"
 #include "search.h"
 #include "ptrscan.h"
 #include "pcontrol.h"
 #include "vtable.h"
 #include "wincrypt.h"
+#include "lua_socket.h"
 #include "xedparse\src\XEDParse.h"
 
 FILE _iob[] = {*stdin, *stdout, *stderr};
@@ -88,9 +88,11 @@ BOOL RSAENH_CPDecrypt
  )
 */
 
+/*
 typedef int _PyRun_SimpleString (char *);
 
 _PyRun_SimpleString real_PyRun_SimpleString = NULL;
+*/
  
  
 
@@ -192,6 +194,7 @@ extern "C" unsigned long __stdcall newRecv(unsigned long socket, char *buf, unsi
 
 int keyExported = 0;
 
+#ifdef INCLUDE_NEWCRYPT
 extern "C" __declspec(dllexport) BOOL __stdcall newCryptEncrypt(HCRYPTKEY key, HCRYPTHASH hash, BOOL final, DWORD flags, BYTE *buf, DWORD *buflen,DWORD dwBufLen);
 extern "C" BOOL __stdcall newCryptEncrypt(HCRYPTKEY key, HCRYPTHASH hash, BOOL final, DWORD flags, BYTE *buf, DWORD *buflen,DWORD dwBufLen)
 {
@@ -275,6 +278,7 @@ extern "C" BOOL __stdcall newCryptDecrypt(HCRYPTKEY key, HCRYPTHASH hash, BOOL f
 
 	return b;
 }
+#endif
 
 // dirty hack we use to enable short patching on 64-bit
 // search from the addressFromto an address with "\XC3
@@ -594,8 +598,8 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
 	char *fnameBuf[1024];
 
 	GetLocalTime(&lt);
-
 	sprintf((char *)fnameBuf,"c:\\projects\\packetlog-%02d:%02d.log",lt.wHour,lt.wMinute);
+	
 	MODULEINFO mi;
     if(fdwReason == DLL_PROCESS_ATTACH && init == 0)
       {
@@ -609,6 +613,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
 		IMAGE_DOS_HEADER *imgDosHdr = (IMAGE_DOS_HEADER *)mi.lpBaseOfDll;
 		IMAGE_NT_HEADERS *imgNtHdrs = (IMAGE_NT_HEADERS *)(imgDosHdr + imgDosHdr->e_lfanew);
 
+		#ifdef THROWBRICKS
 		OutputDebugString(" - my mind is not my own: breaking headers\n");
 
 		VirtualProtect(mi.lpBaseOfDll,1,PAGE_READWRITE,&oldProtect);
@@ -619,6 +624,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
 		VirtualProtect((LPVOID )(imgNtHdrs),1,PAGE_READWRITE,&oldProtect);
 		imgNtHdrs->Signature = 0;
 		VirtualProtect((LPVOID )(imgNtHdrs),1,oldProtect,&oldProtect);
+		#endif
 
 		OutputDebugString(" - creating server thread\n");
 
@@ -632,7 +638,6 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
 		// hPacketCapture_ENCRYPT = CreateFile("\\\\.\\pipe\\mynamedpipe-encrypt",GENERIC_READ|GENERIC_WRITE,0,NULL,OPEN_EXISTING,0,NULL);
 		// hPacketCapture_DECRYPT = CreateFile("\\\\.\\pipe\\mynamedpipe-decrypt",GENERIC_READ|GENERIC_WRITE,0,NULL,OPEN_EXISTING,0,NULL);
 		
-		real_PyRun_SimpleString = (_PyRun_SimpleString )GetProcAddress(GetModuleHandle("python27.dll","PyRun_SimpleString");
 		// iathook((UINT_PTR )GetProcAddress(LoadLibrary("ws2_32"),"send"),(UINT_PTR )&newSend,(UINT_PTR *)&oldSend);
 		// hook((UINT_PTR )GetProcAddress(LoadLibrary("CRYPTSP"),"CryptEncrypt"),(UINT_PTR )&newCryptEncrypt,(UINT_PTR *)&oldCryptEncrypt);
 		// hook((UINT_PTR )GetProcAddress(LoadLibrary("CRYPTSP"),"CryptDecrypt"),(UINT_PTR )&newCryptDecrypt,(UINT_PTR *)&oldCryptDecrypt);
@@ -1162,6 +1167,8 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	lua_register(luaState,"search_vtable",cs_search_vtable);
 	lua_register(luaState,"dump_all",cs_dump_everything_we_can);
 	lua_register(luaState,"dump_module",cs_dump_module);
+	lua_register(luaState,"ls_connect",cs_ls_connect);
+	lua_register(luaState,"ls_closesocket",cs_ls_closesocket);
 	lua_register(luaState,"eb",cs_eb);
 	lua_register(luaState,"ew",cs_ew);
 	lua_register(luaState,"ed",cs_ed);
