@@ -18,6 +18,9 @@ of these were inspired by functionality in cheat engine:
 - int malloc(size):
   allocates a new block of memory. returns an integer pointing to the newly
   allocated memory buffer
+  
+- void free(ptr):
+  frees a block of memory (created by malloc);
 
 - int mprotect(addr,size,mprotect_const):
   proxies a call to VirtualProtect, setting the address of one or more memory
@@ -110,6 +113,16 @@ such as labels. sorry =(
 
 - void d{b/w/d}(address):
   display a single {byte/word/dword} at the given address
+  
+### sockets
+
+- sock ls_connect(host,port)
+  this creates a socket, temporarily sets it to nonblocking so connect can have
+  a non-ridiculous timeout, and ioctl's it to blocking again.
+
+- int ls_closesocket(sock)
+- void ls_send(sock,data);
+- size ls_recv(sock,size);
 
 ### handy lua stuff
 

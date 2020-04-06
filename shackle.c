@@ -1150,6 +1150,7 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	lua_register(luaState,"memcpy",cs_memcpy);
 	lua_register(luaState,"memset",cs_memset);
 	lua_register(luaState,"malloc",cs_malloc);
+	lua_register(luaState,"free",cs_free);
 	lua_register(luaState,"mprotect",cs_mprotect);
 	lua_register(luaState,"memread",cs_memread);
 	lua_register(luaState,"disasm",cs_disassemble);
@@ -1169,6 +1170,8 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	lua_register(luaState,"dump_module",cs_dump_module);
 	lua_register(luaState,"ls_connect",cs_ls_connect);
 	lua_register(luaState,"ls_closesocket",cs_ls_closesocket);
+	lua_register(luaState,"ls_send",cs_ls_send);
+	lua_register(luaState,"ls_recv",cs_ls_recv);
 	lua_register(luaState,"eb",cs_eb);
 	lua_register(luaState,"ew",cs_ew);
 	lua_register(luaState,"ed",cs_ed);
@@ -1474,6 +1477,29 @@ static int cs_malloc(lua_State *L)
 	return 1;
 }
 
+static int cs_free(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
+	lua_pop(L,1);
+	char mbuf[1024];
+
+	char *ptr = NULL;
+
+	if (lua_gettop(L) == 1)
+	{
+		ptr = (char *)lua_tointeger(L,1);
+	}
+	else
+	{
+		outString(hPipe," [ERR] free(ptr) requires 1 argument\n");
+		return 0;
+	}
+
+	free(ptr);
+	return 0;
+}
+
 static int cs_mprotect(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
@@ -1544,7 +1570,7 @@ static int cs_memset(lua_State *L)
 	}
 	else
 	{
-		outString(hPipe," [ERR] memcpy(dest,source,size) requires 3 arguments\n");
+		outString(hPipe," [ERR] memset(dest,source,size) requires 3 arguments\n");
 		return 0;
 	}
 
