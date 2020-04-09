@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <windows.h>
 #include <tlhelp32.h>
+#include <psapi.h>
 #include "peb.h"
 
 // https://www.virtualbox.org/svn/vbox/trunk/src/VBox/HostDrivers/Support/testcase/tstNtQueryStuff.cpp
@@ -40,6 +41,11 @@ DWORD globalPid = 0;
 #define OPMODE_DEFAULT 0
 #define OPMODE_LIST 1
 #define OPMODE_INJECT 2
+
+#define OPM_FLAGS_NONE 0
+#define OPM_FLAGS_DNR 1
+#define OPM_FLAGS_SNAKESALIVE 1
+
 int globalWait = 0;
 int globalTest = 0;
 int globalCooldown = 0;
@@ -47,6 +53,7 @@ int globalInject = 0;
 char *globalDll = NULL;
 char *stringToMatch = NULL;
 int opMode = OPMODE_DEFAULT;
+int opFlags = OPM_FLAGS_NONE;
 
 typedef struct _LSA_UNICODE_STRING
 {
@@ -96,6 +103,29 @@ typedef struct _PROCESS_BASIC_INFORMATION
   PVOID Reserved3;
 } PROCESS_BASIC_INFORMATION;
 
+char *shortName(char *fullName)
+{
+    if(strlen(fullName) == 0)
+    {
+        // no nice way to pass interrupt-prints to the peek client
+        // so let's have this on hold for now.
+        return NULL;
+    }
+    int i = strlen(fullName) - 1;
+    int firstToggle = 0;
+    for( ; i > 0; i--)
+    {
+        // don't accept last character is '\\'
+        if(fullName[i] == '\\' && firstToggle == 1)
+        {
+            return (char *)(fullName + i + 1);
+        }
+        firstToggle = 1;
+    }
+
+    return (char *)(fullName + i);
+}
+
 UINT_PTR guessExecutableEntryPoint (HANDLE globalhProcess, UINT_PTR baseaddr);
 int exists(const char *fname);
 char *fullpath(char *dllName);
@@ -104,7 +134,7 @@ void help()
 {
 	printf(" [INFO] dll ldr v0.1\n");
 	printf(" [INFO] -wait : wait for input before injecting\n");
-	printf(" [INFO] -test : inject shackle.dll into test.exe (hardcoded)\n");
+
 	printf(" [INFO] -timer : wait x seconds until inject\n");
 	printf(" [INFO] -dll : specify name of dll to inject\n");
 	printf(" [INFO] -inject : inject into PID (hexadecimal)\n");
@@ -114,6 +144,8 @@ void help()
 	printf(" [INFO] -listall : list all processes\n");
 	printf(" [INFO] -exe : use specified executable\n");
 	printf(" [INFO] -wdir : use specified working directory (raw)\n");
+	printf(" [INFO] --flag-dnr : do not recover\n");
+	printf(" [INFO] --flag-snakesalive : special sauce shellcode mode\n");
 	return;
 }
 
@@ -133,9 +165,13 @@ void parseArgs(int argc, char **argv)
 		{
 			globalWait = 1;
 		}
-		else if (strcmp(argv[i],"-test") == 0)
+		else if (strcmp(argv[i],"--flag-snakesalive") == 0)
 		{
-			globalTest = 1;
+			opFlags |= OPM_FLAGS_SNAKESALIVE;
+		}
+		else if (strcmp(argv[i],"--flag-dnr") == 0)
+		{
+			opFlags |= OPM_FLAGS_DNR;
 		}
 		else if (strcmp(argv[i],"-timer") == 0 && i + 1 < argc)
 		{
@@ -422,9 +458,8 @@ int main(int argc,char **argv)
 
 	if (globalTest)
 	{
-		strcpy(exeInput,"test.exe");
-		strcpy(dllInput,"shackle.dll");
-		strcpy(wdrInput,"c:\\projects\\elegurawolfe\\");
+		printf("bye!\n");
+		exit(0);
 	}
 	else if(globalExeName == NULL || globalWorkingDirectory == NULL || globalDll == NULL)
 	{
@@ -561,8 +596,48 @@ int main(int argc,char **argv)
 	GetThreadContext (hThread, &context);
 	context.PC_REG = entryPoint;
 	SetThreadContext(hThread,&context);
+	
 	ResumeThread(pi.hThread);
-
+	
+	if(opFlags & OPM_FLAGS_SNAKESALIVE)
+	{
+		printf(" [INFO] ~~~~~snakesalive~~~~~\n");
+		Sleep(1000);
+		HMODULE hMods[1024];
+		DWORD cbNeeded = 0;
+		MODULEINFO modInfo;
+		char mbuf[1024];
+		memset(mbuf,0,1024);
+		if( EnumProcessModules( hProcess, hMods, sizeof(hMods),&cbNeeded) )
+		{
+			int i = 0;
+			for (; i < (cbNeeded / sizeof(HMODULE)); i++)
+			{
+				char szModName[1024];
+				GetModuleInformation(hProcess,hMods[i],&modInfo,sizeof(modInfo));
+				if(GetModuleFileNameEx( hProcess,hMods[i],szModName,sizeof(szModName) / sizeof(char)) )
+				{
+					if ( GetModuleInformation(hProcess,hMods[i],&modInfo,sizeof(modInfo)) )
+					{
+						sprintf(mbuf," + %s (0x%p, size:%x) (entry:0x%p)\n",shortName(szModName),hMods[i],modInfo.SizeOfImage,modInfo.EntryPoint);
+						printf(mbuf);
+					}
+					else
+					{
+						sprintf(mbuf," + %s (no info available)\n",shortName(szModName));
+						printf(mbuf);
+					}	
+				
+				}
+			}
+		}
+		printf(" [INFO] bye!");
+		free(exeInput);
+		free(dllInput);
+		free(wdrInput);
+		return 0;
+	}
+	
 	LPVOID remoteMemory = VirtualAllocEx(hProcess,NULL,strlen(dllInput) + 1,MEM_COMMIT + MEM_RESERVE, PAGE_READWRITE);
 	WriteProcessMemory(hProcess,(LPVOID )remoteMemory,dllInput,strlen(dllInput) + 1,&bW);
 
@@ -601,27 +676,34 @@ int main(int argc,char **argv)
 		Sleep(1000);
 	}
 
-	printf(" [INFO] restoring entrypoint...\n");
-	SuspendThread(pi.hThread);
-
-	VirtualProtectEx(hProcess,(LPVOID )entryPoint,1, PAGE_READWRITE, &oldProtect);
-	i = WriteProcessMemory(hProcess,(LPVOID )entryPoint,(char *)&oldEntryChars,2,&bW);
-	if (i == 0)
+	if(opFlags & OPM_FLAGS_DNR)
 	{
-		char *errorMessage;
-		FormatMessage (FORMAT_MESSAGE_ALLOCATE_BUFFER +
-                     FORMAT_MESSAGE_FROM_SYSTEM, 0, GetLastError (), 0,
-                     (char *) &errorMessage, 1, NULL);
-		printf (" [FAIL] %s", errorMessage);
-		return 0;
+		printf(" [INFO] restoring entrypoint...\n");
+		SuspendThread(pi.hThread);
+
+		VirtualProtectEx(hProcess,(LPVOID )entryPoint,1, PAGE_READWRITE, &oldProtect);
+		i = WriteProcessMemory(hProcess,(LPVOID )entryPoint,(char *)&oldEntryChars,2,&bW);
+		if (i == 0)
+		{
+			char *errorMessage;
+			FormatMessage (FORMAT_MESSAGE_ALLOCATE_BUFFER +
+						 FORMAT_MESSAGE_FROM_SYSTEM, 0, GetLastError (), 0,
+						 (char *) &errorMessage, 1, NULL);
+			printf (" [FAIL] %s", errorMessage);
+			return 0;
+		}
+		ReadProcessMemory(hProcess,(LPCVOID )entryPoint,(char *)newEntryChars,2,&bR);
+		VirtualProtectEx(hProcess,(LPVOID )entryPoint,1, oldProtect, &discardProtect);
+		printf(" [INFO] entry restored to %02x %02x\n", (unsigned char )newEntryChars[0],(unsigned char )newEntryChars[1]);
+		GetThreadContext (hThread, &context);
+		context.PC_REG = entryPoint;
+		SetThreadContext(hThread,&context);
+		ResumeThread(pi.hThread);
 	}
-	ReadProcessMemory(hProcess,(LPCVOID )entryPoint,(char *)newEntryChars,2,&bR);
-	VirtualProtectEx(hProcess,(LPVOID )entryPoint,1, oldProtect, &discardProtect);
-	printf(" [INFO] entry restored to %02x %02x\n", (unsigned char )newEntryChars[0],(unsigned char )newEntryChars[1]);
-	GetThreadContext (hThread, &context);
-	context.PC_REG = entryPoint;
-	SetThreadContext(hThread,&context);
-	ResumeThread(pi.hThread);
+	else
+	{
+		printf(" [INFO] --flag-dnr supplied, skipping recovery\n");
+	}
 	
 	printf(" [INFO] bye!");
 	free(exeInput);
