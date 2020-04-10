@@ -9,7 +9,7 @@
 int cs_ptrscan(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(UINT_PTR )lua_tonumber(L,-1);
 	lua_pop(L,1);
 
 

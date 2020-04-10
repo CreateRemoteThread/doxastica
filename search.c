@@ -315,7 +315,7 @@ searchResult *mergeResults(searchResult *m, int solutionCount, UINT_PTR *solns)
 int cs_search_fetch(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(UINT_PTR )lua_tonumber(L,-1);
 	lua_pop(L,1);
 	if (lua_gettop(L) == 2)
 	{
@@ -351,7 +351,7 @@ int cs_search_fetch(lua_State *L)
 int cs_search_free(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(UINT_PTR )lua_tonumber(L,-1);
 	lua_pop(L,1);
 	if (lua_gettop(L) == 1)
 	{
@@ -379,7 +379,7 @@ int cs_search_free(lua_State *L)
 int cs_search_filter(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(UINT_PTR )lua_tonumber(L,-1);
 	lua_pop(L,1);
 
 	if (lua_gettop(L) == 2)
@@ -449,7 +449,7 @@ int cs_search_filter(lua_State *L)
 int cs_search_new(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tonumber(L,-1);
+	HANDLE hPipe = (HANDLE )(UINT_PTR )lua_tonumber(L,-1);
 	lua_pop(L,1);
 
 	SYSTEM_INFO si;       // for dwPageSize
@@ -510,7 +510,7 @@ int cs_search_new(lua_State *L)
 		return 0;
 	}
 
-	sprintf(mbuf," [NFO] scanning from 0x%0x to 0x%0x (pagesize=%d)\n", 0, hardMax, si.dwPageSize);	
+	sprintf(mbuf," [NFO] scanning from 0x%0x to 0x%p (pagesize=%d)\n", 0, (void *)hardMax, si.dwPageSize);	
 	outString(hPipe,mbuf);
 
 	// allow for 1024 instances at once.

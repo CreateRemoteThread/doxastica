@@ -14,7 +14,7 @@ int wsaStartupDone = 0;
 int cs_ls_connect(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
+	HANDLE hPipe = (HANDLE )(UINT_PTR )lua_tointeger(L,-1);
 	lua_pop(L,1);
 
 	if (lua_gettop(L) == 2)
@@ -127,7 +127,7 @@ int cs_ls_connect(lua_State *L)
 int cs_ls_closesocket(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
+	HANDLE hPipe = (HANDLE )(UINT_PTR )lua_tointeger(L,-1);
 	lua_pop(L,1);
 	
 	if (lua_gettop(L) == 1)
@@ -152,7 +152,7 @@ int cs_ls_closesocket(lua_State *L)
 int cs_ls_recv(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
+	HANDLE hPipe = (HANDLE )(UINT_PTR )lua_tointeger(L,-1);
 	lua_pop(L,1);
 	
 	if (lua_gettop(L) == 2)
@@ -188,7 +188,7 @@ int cs_ls_recv(lua_State *L)
 int cs_ls_send(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
-	HANDLE hPipe = (HANDLE )(int )lua_tointeger(L,-1);
+	HANDLE hPipe = (HANDLE )(UINT_PTR )lua_tointeger(L,-1);
 	lua_pop(L,1);
 	
 	if (lua_gettop(L) == 2)

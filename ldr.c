@@ -46,6 +46,7 @@ DWORD globalPid = 0;
 #define OPM_FLAGS_DNR 1
 #define OPM_FLAGS_SNAKESALIVE 2
 #define OPM_FLAGS_MSCOREE 4
+#define OPM_FLAGS_WAIT 8
 
 int globalWait = 0;
 int globalTest = 0;
@@ -145,6 +146,7 @@ void help()
 	printf(" [INFO] -listall : list all processes\n");
 	printf(" [INFO] -exe : use specified executable\n");
 	printf(" [INFO] -wdir : use specified working directory (raw)\n");
+	printf(" [INFO] -wait : wait before inesrting payload (to attach debugger)\n");
 	printf(" [INFO] --flag-dnr : do not recover (leave \\xEB\\xFE in) \n");
 	printf(" [INFO] --flag-snakesalive : special sauce shellcode mode\n");
 	printf(" [INFO] --flag-mscoree : special sauce fix .net mode\n");
@@ -178,6 +180,10 @@ void parseArgs(int argc, char **argv)
 		else if (strcmp(argv[i],"--flag-dnr") == 0)
 		{
 			opFlags |= OPM_FLAGS_DNR;
+		}
+		else if (strcmp(argv[i],"--flag-wait") == 0)
+		{
+			opFlags |= OPM_FLAGS_WAIT;
 		}
 		else if (strcmp(argv[i],"--flag-mscoree") == 0)
 		{
@@ -394,7 +400,7 @@ void injectIntoProcess(int processId, char *dllInput)
 	HANDLE hKernel = LoadLibrary("kernel32.dll");
 	LPVOID addrLoadLibrary = GetProcAddress( (HMODULE )hKernel, "LoadLibraryA");
 	
-	printf(" [INFO] trying to create a remote thread at %08x\n",(unsigned long )addrLoadLibrary);
+	printf(" [INFO] trying to create a remote thread at 0x%p\n",(void *)addrLoadLibrary);
 
 	char *dllOutput = (char *)malloc(MAX_PATH);
 	memset(dllOutput,0,MAX_PATH);
@@ -551,13 +557,13 @@ int main(int argc,char **argv)
 		}
 	#endif
 
-	printf(" [INFO] process handle is %08x\n",(unsigned long )hProcess);
+	printf(" [INFO] process handle is 0x%p\n",(void *)hProcess);
 
 	PROCESS_BASIC_INFORMATION pib;
 	PEB_ARCHI globalPEB;
 
 	NtQueryInformationProcess (hProcess, 0, (PVOID )(&pib), sizeof (pib),& bW);
-	printf(" [INFO] pib.PebBaseAddress = 0x%p (size of field is %d)\n", pib.PebBaseAddress, sizeof(pib.PebBaseAddress));
+	printf(" [INFO] pib.PebBaseAddress = 0x%p (size of field is %d)\n", pib.PebBaseAddress, (int )sizeof(pib.PebBaseAddress));
 	if(pib.PebBaseAddress == 0)
 	{
 		printf(" [INFO] pebbaseaddress == 0; are you trying ldr32 on a 64bit process?\n");
@@ -601,10 +607,22 @@ int main(int argc,char **argv)
 		VirtualProtectEx(hProcess,(LPVOID )entryPoint,1, PAGE_READWRITE, &oldProtect);
 		ReadProcessMemory(hProcess,(LPCVOID )entryPoint,(char *)oldEntryChars,2,&bR);
 		printf(" [INFO] old entry is %02x %02x\n", (unsigned char )oldEntryChars[0],(unsigned char )oldEntryChars[1]);
-		if(oldEntryChars[0] == '\xFF' && oldEntryChars[1] == '\x25')
+		if(oldEntryChars[0] == '\xFF' && oldEntryChars[1] == '\x25' )
 		{
-			printf(" [.NET] this looks like a .net executable, recommend --flag-mscoree, proceeding regardless\n");
+			if(opFlags & OPM_FLAGS_MSCOREE)
+			{
+				printf(" [.NET] this looks like a .net executable, --flag-mscoree detected, proceeding\n");
+			}
+			else
+			{
+				printf(" [.NET] this looks like a .net executable, recommend --flag-mscoree, proceeding regardless\n");
+			}
 		}
+		else if(opFlags & OPM_FLAGS_MSCOREE)
+		{
+			printf(" [.NET] this doesn't look like a .net executable...\n");
+		}
+		
 		printf(" [INFO] writing...\n");
 
 		if(WriteProcessMemory(hProcess,(LPVOID )entryPoint,"\xEB\xFE",2,&bW) == 0)
@@ -648,8 +666,11 @@ int main(int argc,char **argv)
 		#define SNAKESALIVE_MIN 20
 		// niche-case process hollowing. use with care.
 		int i = 0;
-		printf(" [SNAKES] alive, waiting for input...\n");
-		getchar();
+		if(opFlags & OPM_FLAGS_WAIT)
+		{
+			printf(" [SNAKES] --wait specified, attach a debugger now and hit enter\n");
+			getchar();
+		}
 		HMODULE hMods[1024];
 		DWORD cbNeeded = 0;
 		MODULEINFO modInfo;
@@ -764,15 +785,18 @@ int main(int argc,char **argv)
 		free(wdrInput);
 		return 0;
 	}
-		
-	printf(" [ASLR TEST] alive, waiting for input...\n");
-	getchar();
+	
+	if(opFlags & OPM_FLAGS_WAIT)
+	{
+		printf(" [INFO] --wait specified, hit enter when ready...\n");
+		getchar();
+	}
 	ResumeThread(pi.hThread);
 	
 	LPVOID remoteMemory = VirtualAllocEx(hProcess,NULL,strlen(dllInput) + 1,MEM_COMMIT + MEM_RESERVE, PAGE_READWRITE);
 	WriteProcessMemory(hProcess,(LPVOID )remoteMemory,dllInput,strlen(dllInput) + 1,&bW);
 
-	printf(" [INFO] trying to create a remote thread at %08x\n",(unsigned long )addrLoadLibrary);
+	printf(" [INFO] trying to create a remote thread at 0x%p\n",(void *)addrLoadLibrary);
 
 	char *dllOutput = (char *)malloc(MAX_PATH);
 	memset(dllOutput,0,MAX_PATH);
@@ -813,9 +837,115 @@ int main(int argc,char **argv)
 	}
 	else if(opFlags & OPM_FLAGS_MSCOREE)
 	{
-		printf(" [INFO] .net detected, using custom recovery shellcode\n");
+		printf(" [.NET] deploying trickery for MSCOREE recovery\n");
 		// see http://srevas.net/notes/2007/12/25/mscoree/
 		SuspendThread(pi.hThread);
+		
+					REGISTER_LENGTH remoteMscoreeBase = 0;
+		// prep: identify where CorExeMain is in our own process.
+		MODULEINFO module_info; memset(&module_info, 0, sizeof(module_info));
+		HANDLE mscoree_base = LoadLibrary("mscoree.dll");
+		HANDLE mscoree_handle = GetModuleHandle("mscoree.dll");
+		if (GetModuleInformation(GetCurrentProcess(), (HMODULE )mscoree_handle, &module_info, sizeof(module_info))) {
+			DWORD module_size = module_info.SizeOfImage;
+			BYTE * module_ptr = (BYTE*)module_info.lpBaseOfDll;
+			printf(" [.NET] local MSCOREE at %p, size %d\n",module_ptr,module_size);
+			BYTE * corexe_ptr = (BYTE *)GetProcAddress((HMODULE )mscoree_base,"_CorExeMain");
+			printf(" [.NET] local _CorExeMain at %p, offset %x\n",corexe_ptr,(unsigned long )(corexe_ptr - module_ptr));
+			
+			printf(" [.NET] enumerating for remote MSCOREE... \n");
+			
+			HMODULE hMods[1024];
+			DWORD cbNeeded = 0;
+			MODULEINFO modInfo;
+			char mbuf[1024];
+			memset(mbuf,0,1024);
+
+			if( EnumProcessModules( hProcess, hMods, sizeof(hMods),&cbNeeded) )
+			{
+				int i = 0;
+				for (; i < (cbNeeded / sizeof(HMODULE)); i++)
+				{
+					char szModName[1024];
+					GetModuleInformation(hProcess,hMods[i],&modInfo,sizeof(modInfo));
+					if(GetModuleFileNameEx( hProcess,hMods[i],szModName,sizeof(szModName) / sizeof(char)) )
+					{
+						if ( GetModuleInformation(hProcess,hMods[i],&modInfo,sizeof(modInfo)) )
+						{
+							sprintf(mbuf," + %s (0x%p, size:%x) (entry:0x%p)\n",shortName(szModName),hMods[i],modInfo.SizeOfImage,modInfo.EntryPoint);
+							printf(mbuf);
+							if(strcmp(shortName(szModName),"MSCOREE.DLL") == 0)
+							{
+								printf(" [.NET] found MSCOREE at %p\n",hMods[i]);
+								remoteMscoreeBase = (REGISTER_LENGTH )hMods[i];
+								break;
+							}
+						}
+						else
+						{
+							sprintf(mbuf," + %s (no info available)\n",shortName(szModName));
+							printf(mbuf);
+						}	
+					}
+				}
+			}
+			
+			if(remoteMscoreeBase == 0)
+			{
+				printf(" [.NET] --flag-mscoree specified but MSCOREE not loaded, exiting\n");
+				exit(0);
+			}
+			printf(" [.NET] ignoring relocations, doing it ourselves...\n");
+			REGISTER_LENGTH iatEntry = (REGISTER_LENGTH )(remoteMscoreeBase + (corexe_ptr - module_ptr));
+			VirtualProtectEx(hProcess,(LPVOID )(entryPoint + 10),1, PAGE_READWRITE, &oldProtect);
+			i = WriteProcessMemory(hProcess,(LPVOID )(entryPoint + 10),(char *)&iatEntry,sizeof(REGISTER_LENGTH),&bW);
+			if (i == 0)
+			{
+				char *errorMessage;
+				FormatMessage (FORMAT_MESSAGE_ALLOCATE_BUFFER +
+							 FORMAT_MESSAGE_FROM_SYSTEM, 0, GetLastError (), 0,
+							 (char *) &errorMessage, 1, NULL);
+				printf (" [FAIL] %s", errorMessage);
+				return 0;
+			}
+			VirtualProtectEx(hProcess,(LPVOID )(entryPoint + 10),1, oldProtect, &discardProtect);
+		}
+		else
+		{
+			printf(" [FAIL] couldn't get information for mscoree in our own process\n");
+			exit(0);
+		}
+		
+		/*
+		// step 1 is to fix the static call address (i.e. ida -> live)
+		char *mscoree_fix = (char *)malloc(6);
+		mscoree_fix[0] = '\xFF';
+		mscoree_fix[1] = '\x25';
+		// todo: avoid assuming .net compiles the same way.
+		((DWORD *)((char *)mscoree_fix + 2))[0] = entryPoint - (globalPEB.ImageBaseAddress + 0x2000);
+		*/
+		
+		char *mscoree_fix = (char *)malloc(7);
+		mscoree_fix[0] = '\xFF';
+		mscoree_fix[1] = '\x25';
+		// todo: avoid assuming .net compiles the same way.
+		((DWORD *)((char *)mscoree_fix + 2))[0] = 4;
+		
+		printf(" [.NET] inserting custom loader\n");
+		// step 2 is to dynamic load the static call address (?)
+		VirtualProtectEx(hProcess,(LPVOID )entryPoint,1, PAGE_READWRITE, &oldProtect);
+		i = WriteProcessMemory(hProcess,(LPVOID )entryPoint,(char *)mscoree_fix,6,&bW);
+		if (i == 0)
+		{
+			char *errorMessage;
+			FormatMessage (FORMAT_MESSAGE_ALLOCATE_BUFFER +
+						 FORMAT_MESSAGE_FROM_SYSTEM, 0, GetLastError (), 0,
+						 (char *) &errorMessage, 1, NULL);
+			printf (" [FAIL] %s", errorMessage);
+			return 0;
+		}
+		ReadProcessMemory(hProcess,(LPCVOID )entryPoint,mscoree_fix,6,&bR);
+		VirtualProtectEx(hProcess,(LPVOID )entryPoint,1, oldProtect, &discardProtect);
 		
 		GetThreadContext (hThread, &context);
 		context.PC_REG = entryPoint;
@@ -870,7 +1000,7 @@ UINT_PTR guessExecutableEntryPoint (HANDLE globalhProcess, UINT_PTR baseaddr)
 
   if (bR != sizeof (IMAGE_DOS_HEADER))
     {
-      printf (" [FAIL] could not read IMAGE_DOS_HEADER (read %x bytes)\n",bR);
+      printf (" [FAIL] could not read IMAGE_DOS_HEADER (read 0x%04x bytes)\n",(unsigned int )bR);
       return 0;
     }
 
@@ -879,12 +1009,12 @@ UINT_PTR guessExecutableEntryPoint (HANDLE globalhProcess, UINT_PTR baseaddr)
                      sizeof (IMAGE_NT_HEADERS), &bR);
   if (bR != sizeof (IMAGE_NT_HEADERS))
     {
-      printf (" [INFO] could not read IMAGE_NT_HEADERS (read %x bytes)\n",bR);
+      printf (" [INFO] could not read IMAGE_NT_HEADERS (read 0x%04x bytes)\n",(unsigned int )bR);
       return 0;
     }
 	
 	printf(" [DEBUG] guessExecutableEntryPoint: imgNtHdr.OptionalHeader.ImageBase = %p\n",(void *)imgNtHdr.OptionalHeader.ImageBase);
-	printf(" [DEBUG] guessExecutableEntryPoint: imgNtHdr.OptionalHeader.AddressOfEntryPoint = %p\n",(void *)imgNtHdr.OptionalHeader.AddressOfEntryPoint);
+	printf(" [DEBUG] guessExecutableEntryPoint: imgNtHdr.OptionalHeader.AddressOfEntryPoint = %p\n",(void *)(UINT_PTR )(imgNtHdr.OptionalHeader.AddressOfEntryPoint));
 	
 	if(imgNtHdr.OptionalHeader.DllCharacteristics & IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE)
 	{
