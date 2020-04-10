@@ -44,7 +44,8 @@ DWORD globalPid = 0;
 
 #define OPM_FLAGS_NONE 0
 #define OPM_FLAGS_DNR 1
-#define OPM_FLAGS_SNAKESALIVE 1
+#define OPM_FLAGS_SNAKESALIVE 2
+#define OPM_FLAGS_MSCOREE 4
 
 int globalWait = 0;
 int globalTest = 0;
@@ -144,8 +145,9 @@ void help()
 	printf(" [INFO] -listall : list all processes\n");
 	printf(" [INFO] -exe : use specified executable\n");
 	printf(" [INFO] -wdir : use specified working directory (raw)\n");
-	printf(" [INFO] --flag-dnr : do not recover\n");
+	printf(" [INFO] --flag-dnr : do not recover (leave \\xEB\\xFE in) \n");
 	printf(" [INFO] --flag-snakesalive : special sauce shellcode mode\n");
+	printf(" [INFO] --flag-mscoree : special sauce fix .net mode\n");
 	return;
 }
 
@@ -167,11 +169,19 @@ void parseArgs(int argc, char **argv)
 		}
 		else if (strcmp(argv[i],"--flag-snakesalive") == 0)
 		{
+			#ifdef ARCHI_64
+			printf(" [INFO] snakesalive mode not implemented for 64-bit, ignoring flag\n");
+			#else
 			opFlags |= OPM_FLAGS_SNAKESALIVE;
+			#endif
 		}
 		else if (strcmp(argv[i],"--flag-dnr") == 0)
 		{
 			opFlags |= OPM_FLAGS_DNR;
+		}
+		else if (strcmp(argv[i],"--flag-mscoree") == 0)
+		{
+			opFlags |= OPM_FLAGS_MSCOREE;
 		}
 		else if (strcmp(argv[i],"-timer") == 0 && i + 1 < argc)
 		{
@@ -548,6 +558,11 @@ int main(int argc,char **argv)
 
 	NtQueryInformationProcess (hProcess, 0, (PVOID )(&pib), sizeof (pib),& bW);
 	printf(" [INFO] pib.PebBaseAddress = 0x%p (size of field is %d)\n", pib.PebBaseAddress, sizeof(pib.PebBaseAddress));
+	if(pib.PebBaseAddress == 0)
+	{
+		printf(" [INFO] pebbaseaddress == 0; are you trying ldr32 on a 64bit process?\n");
+		exit(0);
+	}
 
 	ReadProcessMemory (hProcess, pib.PebBaseAddress, &globalPEB, sizeof (globalPEB), &bR);
 	if (bR != sizeof (globalPEB))
@@ -563,31 +578,62 @@ int main(int argc,char **argv)
 	printf(" [INFO] peb.ImageBaseAddress = %p\n", (void *)(globalPEB.ImageBaseAddress));
 
 	UINT_PTR entryPoint = guessExecutableEntryPoint (hProcess, globalPEB.ImageBaseAddress);
-	printf(" [INFO] entryPoint = 0x%8x\n", entryPoint);
+	printf(" [INFO] entryPoint = 0x%p\n", (void *)entryPoint);
+	
+	entryPoint &= 0xFFFFFFFF;
+	if((void *)entryPoint < (void *)globalPEB.ImageBaseAddress)
+	{
+		printf(" [INFO] entrypoint < base address, compensating for ASLR\n");
+		entryPoint += globalPEB.ImageBaseAddress;
+	}
 
 	char oldEntryChars[2];
 	DWORD oldProtect = 0;
 	DWORD discardProtect = 0;
-
-	VirtualProtectEx(hProcess,(LPVOID )entryPoint,1, PAGE_READWRITE, &oldProtect);
-	ReadProcessMemory(hProcess,(LPCVOID )entryPoint,(char *)oldEntryChars,2,&bR);
-	printf(" [INFO] old entry is %02x %02x\n", (unsigned char )oldEntryChars[0],(unsigned char )oldEntryChars[1]);
-	printf(" [INFO] writing...\n");
-
-	WriteProcessMemory(hProcess,(LPVOID )entryPoint,"\xEB\xFE",2,&bW);
-	VirtualProtectEx(hProcess,(LPVOID )entryPoint,1,oldProtect,&discardProtect);
-
+	
+	DWORD dotNetFix_oldProtect = 0;
+	
 	char newEntryChars[2];
+	
+	if((opFlags & OPM_FLAGS_SNAKESALIVE) == 0)
+	{
 
-	ReadProcessMemory(hProcess,(LPCVOID )entryPoint,(char *)newEntryChars,2,&bR);
-	if (newEntryChars[0] == '\xEB' && newEntryChars[1] == '\xFE')
-	{
-		printf(" [INFO] new entry is %02x %02x\n", (unsigned char )newEntryChars[0],(unsigned char )newEntryChars[1]);
-	}
-	else
-	{
-		printf(" [INFO] new entry is %02x %02x, something's wrong\n", (unsigned char )newEntryChars[0],(unsigned char )newEntryChars[1]);
-		return 0;
+		VirtualProtectEx(hProcess,(LPVOID )entryPoint,1, PAGE_READWRITE, &oldProtect);
+		ReadProcessMemory(hProcess,(LPCVOID )entryPoint,(char *)oldEntryChars,2,&bR);
+		printf(" [INFO] old entry is %02x %02x\n", (unsigned char )oldEntryChars[0],(unsigned char )oldEntryChars[1]);
+		if(oldEntryChars[0] == '\xFF' && oldEntryChars[1] == '\x25')
+		{
+			printf(" [.NET] this looks like a .net executable, recommend --flag-mscoree, proceeding regardless\n");
+		}
+		printf(" [INFO] writing...\n");
+
+		if(WriteProcessMemory(hProcess,(LPVOID )entryPoint,"\xEB\xFE",2,&bW) == 0)
+		{
+			printf(" [FAIL] WriteProcessMemory failed, check for countermeasures\n");
+		}
+		if(oldProtect == PAGE_READONLY)
+		{
+			VirtualProtectEx(hProcess,(LPVOID )entryPoint,1,PAGE_EXECUTE_READ,&discardProtect);
+			printf(" [INFO] .net page permissions fix, saving original permissions\n");
+			dotNetFix_oldProtect = PAGE_READONLY;
+		}
+		else
+		{
+			
+			VirtualProtectEx(hProcess,(LPVOID )entryPoint,1,oldProtect,&discardProtect);
+		}
+
+		ReadProcessMemory(hProcess,(LPCVOID )entryPoint,(char *)newEntryChars,2,&bR);
+		if (newEntryChars[0] == '\xEB' && newEntryChars[1] == '\xFE')
+		{
+			printf(" [INFO] new entry is %02x %02x\n", (unsigned char )newEntryChars[0],(unsigned char )newEntryChars[1]);
+		}
+		else
+		{
+			printf(" [INFO] new entry is %02x %02x, something's wrong\n", (unsigned char )newEntryChars[0],(unsigned char )newEntryChars[1]);
+			return 0;
+		}
+	
 	}
 	
 	CONTEXT context;
@@ -597,12 +643,13 @@ int main(int argc,char **argv)
 	context.PC_REG = entryPoint;
 	SetThreadContext(hThread,&context);
 	
-	ResumeThread(pi.hThread);
-	
 	if(opFlags & OPM_FLAGS_SNAKESALIVE)
 	{
-		printf(" [INFO] ~~~~~snakesalive~~~~~\n");
-		Sleep(1000);
+		#define SNAKESALIVE_MIN 20
+		// niche-case process hollowing. use with care.
+		int i = 0;
+		printf(" [SNAKES] alive, waiting for input...\n");
+		getchar();
 		HMODULE hMods[1024];
 		DWORD cbNeeded = 0;
 		MODULEINFO modInfo;
@@ -631,12 +678,96 @@ int main(int argc,char **argv)
 				}
 			}
 		}
+		
+		// just to sanity check. should be at the same place.
+		UINT_PTR ptrLoadLibraryA = (UINT_PTR )GetProcAddress(LoadLibrary("kernel32"),"LoadLibraryA");
+		printf(" [SNAKES] Local LoadLibraryA = %p\n",(void *)ptrLoadLibraryA);
+		
+		int llc = 0;
+		char *loadLibraryPrefix = (char *)malloc(10);
+		ReadProcessMemory(hProcess,(LPCVOID )ptrLoadLibraryA,(char *)loadLibraryPrefix,10,&bR);
+		for(llc = 0;llc < 10;llc++)
+		{
+			if(((char *)ptrLoadLibraryA)[llc]  != loadLibraryPrefix[llc])
+			{
+				printf(" [SNAKES] local loadlibary != remote loadlibrary, exiting\n");
+				exit(0);
+			}
+		}
+		free(loadLibraryPrefix);
+		 
+		
+		// LPVOID remoteMemory = VirtualAllocEx(hProcess,NULL,strlen(dllInput) + 1,MEM_COMMIT + MEM_RESERVE, PAGE_READWRITE);
+		// WriteProcessMemory(hProcess,(LPVOID )remoteMemory,dllInput,strlen(dllInput) + 1,&bW);
+		
+		// printf(" [SNAKES] inserting libname at %p\n",(void *)remoteMemory);
+		
+		int SNAKESALIVE_BUFSIZE = SNAKESALIVE_MIN + strlen(dllInput) + 1;
+		
+		printf(" [SNAKES] exteded shellcode %d bytes\n",SNAKESALIVE_BUFSIZE);
+		char *lla_bytes = (char *)malloc(SNAKESALIVE_BUFSIZE);
+		memset(lla_bytes,0xCC,SNAKESALIVE_BUFSIZE);
+		
+		// actual entrypoint
+		int x = 0;
+		lla_bytes[x++] = 0x68;
+		((DWORD *)((char *)lla_bytes + x))[0] = (DWORD )entryPoint + SNAKESALIVE_MIN;
+		// wrong opcode, let's use the push / ret trick again.
+		x += 4;
+		lla_bytes[x++] = 0x90;
+		((DWORD *)((char *)lla_bytes + x))[0] = (DWORD )0x90909090;
+		x += 4;
+		lla_bytes[x++] = 0xE8;
+		((DWORD *)((char *)lla_bytes + x))[0] = (DWORD )(ptrLoadLibraryA - (entryPoint + x + 4));
+		x += 4;
+		lla_bytes[x++] = 0xEB;
+		lla_bytes[x++] = 0xFE;
+		x = SNAKESALIVE_MIN;
+		printf(" [SNAKES] inserting libname at %p\n",(void *)(lla_bytes + SNAKESALIVE_MIN));
+		strcpy(lla_bytes + x, dllInput);
+		
+		// lla_bytes[x+13] = 0xFE;
+		// lla_bytes[x+14] = 0xFE;
+
+		printf(" [SNAKES] inserting shellcode...\n");
+		VirtualProtectEx(hProcess,(LPVOID )entryPoint,1, PAGE_READWRITE, &oldProtect);
+		// ReadProcessMemory(hProcess,(LPCVOID )entryPoint,(char *)oldEntryChars,2,&bR);
+		// printf(" [INFO] old entry is %02x %02x\n", (unsigned char )oldEntryChars[0],(unsigned char )oldEntryChars[1]);
+		// printf(" [INFO] writing...\n");
+		i = WriteProcessMemory(hProcess,(LPVOID )entryPoint,lla_bytes,SNAKESALIVE_BUFSIZE,&bW);
+		if (i == 0)
+		{
+			char *errorMessage;
+			FormatMessage (FORMAT_MESSAGE_ALLOCATE_BUFFER +
+						 FORMAT_MESSAGE_FROM_SYSTEM, 0, GetLastError (), 0,
+						 (char *) &errorMessage, 1, NULL);
+			printf (" [FAIL] %s", errorMessage);
+			return 0;
+		}
+		
+		char *snakesalive_confirm = (char *)malloc(SNAKESALIVE_BUFSIZE);
+		memset(snakesalive_confirm,0,SNAKESALIVE_BUFSIZE);
+		
+		// ReadProcessMemory(hProcess,(LPCVOID )remoteMemory,dllOutput,SNAKESALIVE_BUFSIZE,&bR);
+		// printf(" [INFO] confirming process has cave with \"%s\"\n",dllOutput);
+		
+		if(dotNetFix_oldProtect)
+		{
+			oldProtect = dotNetFix_oldProtect;
+		}
+		VirtualProtectEx(hProcess,(LPVOID )entryPoint,1,oldProtect,&discardProtect);
+		ResumeThread(pi.hThread);
+		
 		printf(" [INFO] bye!");
 		free(exeInput);
 		free(dllInput);
 		free(wdrInput);
 		return 0;
 	}
+		
+	printf(" [ASLR TEST] alive, waiting for input...\n");
+	getchar();
+	ResumeThread(pi.hThread);
 	
 	LPVOID remoteMemory = VirtualAllocEx(hProcess,NULL,strlen(dllInput) + 1,MEM_COMMIT + MEM_RESERVE, PAGE_READWRITE);
 	WriteProcessMemory(hProcess,(LPVOID )remoteMemory,dllInput,strlen(dllInput) + 1,&bW);
@@ -678,6 +809,21 @@ int main(int argc,char **argv)
 
 	if(opFlags & OPM_FLAGS_DNR)
 	{
+		printf(" [INFO] --flag-dnr supplied, leaving process locked\n");
+	}
+	else if(opFlags & OPM_FLAGS_MSCOREE)
+	{
+		printf(" [INFO] .net detected, using custom recovery shellcode\n");
+		// see http://srevas.net/notes/2007/12/25/mscoree/
+		SuspendThread(pi.hThread);
+		
+		GetThreadContext (hThread, &context);
+		context.PC_REG = entryPoint;
+		SetThreadContext(hThread,&context);
+		ResumeThread(pi.hThread);
+	}
+	else
+	{
 		printf(" [INFO] restoring entrypoint...\n");
 		SuspendThread(pi.hThread);
 
@@ -694,15 +840,12 @@ int main(int argc,char **argv)
 		}
 		ReadProcessMemory(hProcess,(LPCVOID )entryPoint,(char *)newEntryChars,2,&bR);
 		VirtualProtectEx(hProcess,(LPVOID )entryPoint,1, oldProtect, &discardProtect);
+
 		printf(" [INFO] entry restored to %02x %02x\n", (unsigned char )newEntryChars[0],(unsigned char )newEntryChars[1]);
 		GetThreadContext (hThread, &context);
 		context.PC_REG = entryPoint;
 		SetThreadContext(hThread,&context);
 		ResumeThread(pi.hThread);
-	}
-	else
-	{
-		printf(" [INFO] --flag-dnr supplied, skipping recovery\n");
 	}
 	
 	printf(" [INFO] bye!");
@@ -739,8 +882,19 @@ UINT_PTR guessExecutableEntryPoint (HANDLE globalhProcess, UINT_PTR baseaddr)
       printf (" [INFO] could not read IMAGE_NT_HEADERS (read %x bytes)\n",bR);
       return 0;
     }
-
-  return imgNtHdr.OptionalHeader.AddressOfEntryPoint + imgNtHdr.OptionalHeader.ImageBase;
+	
+	printf(" [DEBUG] guessExecutableEntryPoint: imgNtHdr.OptionalHeader.ImageBase = %p\n",(void *)imgNtHdr.OptionalHeader.ImageBase);
+	printf(" [DEBUG] guessExecutableEntryPoint: imgNtHdr.OptionalHeader.AddressOfEntryPoint = %p\n",(void *)imgNtHdr.OptionalHeader.AddressOfEntryPoint);
+	
+	if(imgNtHdr.OptionalHeader.DllCharacteristics & IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE)
+	{
+		printf(" [INFO] ASLR indicated by PE header, returning minimal entry\n");
+		return imgNtHdr.OptionalHeader.AddressOfEntryPoint;	
+	}
+	else
+	{
+		return imgNtHdr.OptionalHeader.AddressOfEntryPoint + imgNtHdr.OptionalHeader.ImageBase;
+	}
 }
 
 void chomp(char *s)

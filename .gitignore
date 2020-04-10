@@ -1,5 +1,8 @@
 docs/*.docx
 
+*.i64
+**/*.i64
+
 # Object files
 *.o
 *.ko
