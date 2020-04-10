@@ -5,8 +5,7 @@ IF NOT EXIST xed64 MKDIR xed64
 IF NOT EXIST lua32 MKDIR lua32
 IF NOT EXIST lua64 MKDIR lua64
 
-del /Q *.obj
-del /Q lua53\*.obj
+cd src
 
 IF [%1]==[prereqs64] call build.bat bea64
 IF [%1]==[prereqs64] call build.bat xed64
@@ -35,16 +34,18 @@ IF [%1]==[shackle64] cl /Zi /c /I lua53 /EHsc /Folua_socket64.obj /Tp lua_socket
 IF [%1]==[shackle64] cl /D ARCHI_64 /Zi /c /EHsc /I lua53 /Fosearch64.obj /Tp search.c
 IF [%1]==[shackle64] cl /D ARCHI_64 /Zi /c /EHsc /I lua53 /Fovtable64.obj /Tp vtable.c
 IF [%1]==[shackle64] cl /D ARCHI_64 /Zi /c  /I beainclude /EHsc /I lua53 /Fopcontrol64.obj /Tp pcontrol.c
+IF [%1]==[shackle64] cl /D ARCHI_64 /D  WIN_X64 /Zi /c  /I beainclude /EHsc /I lua53 /Fomagicmirror64.obj /Tp magicmirror.c
 IF [%1]==[shackle64] cl /D ARCHI_64 /Zi /c /I lua53 /I beainclude /EHsc /Foshackle64.obj /Tp shackle.c
-IF [%1]==[shackle64] link /DEF:shackle.def /DLL /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:shackle64.dll shackle64.obj lua_socket64.obj vtable64.obj ptrscan64.obj beasrc/BeaEngine64.obj lua64/*.obj user32.lib psapi.lib xed64/*.obj search64.obj pcontrol64.obj xedparse/xed2/lib/libxed_x64.lib imagehlp.lib ws2_32.lib
+IF [%1]==[shackle64] link /DEF:shackle.def /DLL /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:shackle64.dll shackle64.obj lua_socket64.obj vtable64.obj ptrscan64.obj beasrc/BeaEngine64.obj lua64/*.obj user32.lib psapi.lib xed64/*.obj search64.obj pcontrol64.obj xedparse/xed2/lib/libxed_x64.lib imagehlp.lib ws2_32.lib magicmirror64.obj
 
 IF [%1]==[shackle32] cl /Zi /c /I lua53 /EHsc /Foptrscan32.obj /Tp ptrscan.c
 IF [%1]==[shackle32] cl /Zi /c /I lua53 /EHsc /Folua_socket32.obj /Tp lua_socket.c
 IF [%1]==[shackle32] cl /Zi /c /EHsc /I lua53 /Fosearch32.obj /Tp search.c
 IF [%1]==[shackle32] cl /Zi /c /EHsc /I lua53 /Fovtable32.obj /Tp vtable.c
 IF [%1]==[shackle32] cl /Zi /c /I beainclude /EHsc /I lua53 /Fopcontrol32.obj /Tp pcontrol.c
+IF [%1]==[shackle32] cl /D  WIN_X86 /Zi /c /I beainclude /EHsc /I lua53 /Fomagicmirror32.obj /Tp magicmirror.c
 IF [%1]==[shackle32] cl /Zi /c /I lua53 /I beainclude /EHsc /Foshackle32.obj /Tp shackle.c
-IF [%1]==[shackle32] link /DEF:shackle.def /DLL /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:shackle32.dll shackle32.obj lua_socket32.obj vtable32.obj ptrscan32.obj beasrc/BeaEngine32.obj lua32/*.obj user32.lib psapi.lib xed32/*.obj search32.obj pcontrol32.obj xedparse/xed2/lib/libxed_x86.lib imagehlp.lib advapi32.lib  ws2_32.lib
+IF [%1]==[shackle32] link /DEF:shackle.def /DLL /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:shackle32.dll shackle32.obj lua_socket32.obj vtable32.obj ptrscan32.obj beasrc/BeaEngine32.obj lua32/*.obj user32.lib psapi.lib xed32/*.obj search32.obj pcontrol32.obj xedparse/xed2/lib/libxed_x86.lib imagehlp.lib advapi32.lib  ws2_32.lib magicmirror32.obj
 
 IF [%1]==[bea32] cd beasrc
 IF [%1]==[bea32] cl /Zi /c /I ../beainclude /FoBeaEngine32.obj /Tp BeaEngine.c

@@ -143,3 +143,4 @@ this code borrows heavily from other sources. these are listed below:
 - http://pastebin.com/HbWNAV99
 - beatrix2004.free.fr
 - https://github.com/x64dbg/XEDParse/
+- https://github.com/stephenfewer/ReflectiveDLLInjection

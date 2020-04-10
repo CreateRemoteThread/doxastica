@@ -17,6 +17,7 @@
 #include "vtable.h"
 #include "wincrypt.h"
 #include "lua_socket.h"
+#include "magicmirror.h"
 #include "xedparse\src\XEDParse.h"
 
 FILE _iob[] = {*stdin, *stdout, *stderr};
@@ -542,7 +543,7 @@ void hook(UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress)
 
 	memset(mbuf,0,1024);
 	#if ARCHI == 32
-	sprintf(mbuf,"* [32-BIT] [0x%x] HOOKED %02x %02x%02x%02x%02x (0x%x)\n",(void *)(UINT_PTR )addressFrom,
+	sprintf(mbuf,"* [32-BIT] [0x%p] HOOKED %02x %02x%02x%02x%02x (0x%p)\n",(void *)(UINT_PTR )addressFrom,
 													(unsigned char )addressFromWrite[0],
 													(unsigned char )addressFromWrite[1],
 													(unsigned char )addressFromWrite[2],
@@ -1178,6 +1179,7 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	lua_register(luaState,"db",cs_db);
 	lua_register(luaState,"dw",cs_dw);
 	lua_register(luaState,"dd",cs_dd);
+	lua_register(luaState,"magicmirror",cs_magicmirror);
 	lua_register(luaState,"fetch_byte",cs_fetch_byte);
 	lua_register(luaState,"fetch_word",cs_fetch_word);
 	lua_register(luaState,"fetch_dword",cs_fetch_dword);

@@ -41,6 +41,7 @@ void cs_error(lua_State *L, HANDLE hPipe);
 */
 
 #define ASM_SIG 0x61616261
+#define STRUCTS_ALREADY_LOADED 1
 
 // simplicity's sake
 // we use 1024 lines at once
