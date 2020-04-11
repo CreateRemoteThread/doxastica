@@ -1,5 +1,22 @@
-doxastica - lua functions reference
-===================================
+Lua Engine
+==========
+
+upon starting a lua instance, several default variables are initialized. these
+are:
+
+- window memory protection constances: PAGE_* are defined as integers corresponding
+  to their values as defined in msdn
+
+- SEARCH_DWORD, SEARCH_WORD, SEARCH_BYTE for specifying types of value searches
+
+- module start and size. let's say you've loaded "ati_d3d11.dll", the following
+  values will be automatically defined:
+
+  - ati_d3d11_dll.start
+  - ati_d3d11_dll.size
+
+Lua Functions
+=============
 
 the following additional lua functions are supported as part of doxastica. many
 of these were inspired by functionality in cheat engine:
