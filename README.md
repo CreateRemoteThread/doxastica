@@ -6,8 +6,8 @@
   * [tutorial: save to disk](#save)
 * [Lua Engine](#luaengine)
   * [lua default variables](#luavars)
-  * [lua commands listing](README_FILES/luaref.md)
-* [Development](README_FILES/build.md)
+  * [lua commands listing](docs/luaref.md)
+* [Development](docs/build.md)
 * [Credits](#credits)
 
 Introduction <a name="intro"></a>
@@ -57,7 +57,7 @@ firstly, start the game, and then run the following command:
 
 this should provide an output like the following:
 
-![ldr32 command output](/README_FILES/Untitled.png)
+![ldr32 command output](/docs/Untitled.png)
 
 then, within the game, start a match. lose at least one hitpoint and pause. 
 now, back to our desktop. notice the end of the "ldr32" command output, see 
@@ -81,17 +81,17 @@ copy this result down.
 now, use the "ed" command to edit the DWORD at this location to a higher value,
 and check our work with "hexdump":
 
-![patching player hp](/README_FILES/hexdump_stage2.png)
+![patching player hp](/docs/hexdump_stage2.png)
 
 return to our game, your health should be much higher (this should be 500 but
 i'm not too great at this game so it's less):
 
-![increased hp in unreal tournament](/README_FILES/ingame_morehp.png)
+![increased hp in unreal tournament](/docs/ingame_morehp.png)
 
 this isn't enough. let's bind an unused hotkey so we can go to 500 health every
 time we hit a key.
 
-![bind hotkey](/README_FILES/new_hotkey.png)
+![bind hotkey](/docs/new_hotkey.png)
 
 now, by pressing "p" for half a second, your health will be restored to 500 :)
 
@@ -130,7 +130,7 @@ are:
 lua commands listing
 --------------------
 
-[Click here for a reference of lua commands supported by doxastica](README_FILES/luaref.md)
+[Click here for a reference of lua commands supported by doxastica](docs/luaref.md)
 
 Credits <a name="credits"></a>
 =======
