@@ -91,3 +91,15 @@ typedef struct
 //===============================================================================================//
 #endif
 //===============================================================================================//
+
+typedef struct _REFLECTIVE_LOADER_INFO
+{
+	LPVOID	lpRVADllMain;
+    LPVOID  lpDosHeader;
+	LPVOID  lpPreviousRelocBase;
+    FARPROC fLoadLibraryA;
+    FARPROC fGetProcAddress;
+	FARPROC fVirtualAlloc;
+    FARPROC fNtFlushInstructionCache;
+
+} REFLECTIVE_LOADER_INFO, *PREFLECTIVE_LOADER_INFO;

@@ -591,8 +591,6 @@ void hook(UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress)
 DWORD threadId = 0;
 DWORD threadId_hotkeys = 0;
 
-
-
 BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
 {
 	SYSTEMTIME lt = {0};

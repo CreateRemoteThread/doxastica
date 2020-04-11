@@ -1,7 +1,11 @@
 docs/*.docx
 
+*.idb
+**/*.idb
 *.i64
 **/*.i64
+
+testing/*
 
 # Object files
 *.o
