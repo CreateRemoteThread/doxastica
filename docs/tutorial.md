@@ -1,5 +1,4 @@
-Quickstart Tutorials
-====================
+# tutorials
 
 the goal of our quickstart tutorial will be the hack the unral tournament goty
 edition from steam (http://store.steampowered.com/app/13240/). we will try to
@@ -49,8 +48,7 @@ time we hit a key.
 
 now, by pressing "p" for half a second, your health will be restored to 500 :)
 
-save to disk
-------------
+# saving to disk
 
 sometimes, you want to wait for something to unpack in memory and then save it
 to disk. currently, you can do this with lua's file api:

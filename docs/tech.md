@@ -1,0 +1,7 @@
+# special case docs
+
+this page documents special edge cases used by doxastica, mostly so i don't forget in future
+
+- *--flag-mscoree*: this flag causes special behaviour in ldr to inject-before-executing a .net executable. .net loads executables in a wierd way: the entrypoint function is a stub which goes ot mscoree!CorExeMain. This doesn't actually seem to get called: if you do the usual ebfe loop and restore the entrypoint, the proces just dies. Instead, we need to restore by inserting shellcode which manually resolves and calls CorExeMain manually. This is --flag-mscoree.
+- *--flag-snakesalive*: this was made for a one-off bypass of a security product. The target intercepted and blocked the usual CreateRemoteThread / SuspendThread games, but failed to protect against writing to a process that was suspended on creation. This writes and inserts shellcode which manually calls LoadLibrary to our target dll, relying on the fact that kernel32 is always at the same address between processes in a single boot.
+- *cs_magicmirror(pid)*: this is a work-in-progress which copies the entire dll image from one process' memory space to another, fixes imports and relocs (modified reflectiveloader) and calls dllmain. this seems to work but somehow poops itself on sprintf.

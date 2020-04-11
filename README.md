@@ -1,7 +1,7 @@
 doxastica
 =========
 
-[Lua Ref](docs/luaref.md) | [Tutorials](docs/tutorial.md)
+[Lua Ref](docs/luaref.md) | [Tutorials](docs/tutorial.md) | [Development](docs/build.md) | [Special Modes](docs/special.md)
 
 doxastica is a really bad library for injecting into processes. you definitely shouldn't use it.
 

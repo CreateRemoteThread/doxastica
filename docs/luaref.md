@@ -1,5 +1,4 @@
-Lua Engine
-==========
+# lua engine
 
 upon starting a lua instance, several default variables are initialized. these
 are:
@@ -15,8 +14,7 @@ are:
   - ati_d3d11_dll.start
   - ati_d3d11_dll.size
 
-Lua Functions
-=============
+# functions ref
 
 the following additional lua functions are supported as part of doxastica. many
 of these were inspired by functionality in cheat engine:
