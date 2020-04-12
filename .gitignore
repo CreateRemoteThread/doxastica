@@ -1,5 +1,7 @@
 docs/*.docx
 
+**/*.obj
+
 *.idb
 **/*.idb
 *.i64
