@@ -6,6 +6,7 @@ docs/*.docx
 **/*.idb
 *.i64
 **/*.i64
+*.lib
 
 testing/*
 
