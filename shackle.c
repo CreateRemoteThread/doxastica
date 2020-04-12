@@ -95,8 +95,6 @@ typedef int _PyRun_SimpleString (char *);
 _PyRun_SimpleString real_PyRun_SimpleString = NULL;
 */
  
- 
-
 _MessageBoxA oldMessageBox = NULL;
 _send oldSend = NULL;
 _send oldRecv = NULL;
@@ -591,29 +589,53 @@ void hook(UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress)
 DWORD threadId = 0;
 DWORD threadId_hotkeys = 0;
 
+int isMyTEBFucked(){
+	MessageBox(0,"Teb test","hello2",MB_OK);
+	return 0;
+}
+
 BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
 {
-	SYSTEMTIME lt = {0};
-	char *fnameBuf[1024];
-
-	GetLocalTime(&lt);
-	sprintf((char *)fnameBuf,"c:\\projects\\packetlog-%02d:%02d.log",lt.wHour,lt.wMinute);
-	
-	MODULEINFO mi;
-    if(fdwReason == DLL_PROCESS_ATTACH && init == 0)
+	if((fdwReason == DLL_PROCESS_ATTACH && init == 0) || fdwReason == DLL_MAGICMIRROR)
       {
         init = 1;
+		SYSTEMTIME lt = {0};
+		char *fnameBuf[1024];
 
+
+		GetLocalTime(&lt);
+		/*
+		sprintf crashes here, but other things poop themsleves too.
+		0:001> dd esp
+		01b7e9ac  01b7e9cc 01c9b474 00000013 00000026
+		01b7e9bc  000407e4 000c0000 00260013 02730024
+		01b7e9cc  00003231 c35dd2ce 01b7eaec 00f51e98
+		01b7e9dc  00000003 0100017c 764fc7c8 0000331c
+		01b7e9ec  000000ec ef5abb88 00000002 01489f50
+		01b7e9fc  ef5ab87c 01b7ea6c 77e493ea 01b7eaec
+		01b7ea0c  01b7ea98 01b7ea48 01b7ea44 01b7ea34
+		01b7ea1c  01b7ea3c 00000000 01b7eb5c 01b7ebd4
+		*/
+		char *p = (char *)malloc(1024);
+		sprintf((char *)fnameBuf,"c:\\projects\\packetlog-%02d:%02d.log",lt.wHour,lt.wMinute);
+		/*
+				if(fdwReason == DLL_MAGICMIRROR)
+		{
+			__asm{
+				int 3
+			}
+		}
+		*/
 		OutputDebugString(" - shackle dll loaded, deploying stealth\n");
+		#ifdef THROWBRICKS
+		MODULEINFO mi;
 		GetModuleInformation(GetCurrentProcess(),hinstDLL,&mi,sizeof(mi));
 
 		DWORD oldProtect = 0;
 
 		IMAGE_DOS_HEADER *imgDosHdr = (IMAGE_DOS_HEADER *)mi.lpBaseOfDll;
 		IMAGE_NT_HEADERS *imgNtHdrs = (IMAGE_NT_HEADERS *)(imgDosHdr + imgDosHdr->e_lfanew);
-
-		#ifdef THROWBRICKS
-		OutputDebugString(" - my mind is not my own: breaking headers\n");
+		OutputDebugString(" - throwing bricks at the window for a bit...\n");
 
 		VirtualProtect(mi.lpBaseOfDll,1,PAGE_READWRITE,&oldProtect);
 		imgDosHdr->e_magic = 0;
@@ -626,25 +648,8 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
 		#endif
 
 		OutputDebugString(" - creating server thread\n");
-
-		CreateThread(NULL,0,IPCServerThread,NULL,0,&threadId);
-
-		// hook((UINT_PTR )GetProcAddress(LoadLibrary("user32"),"MessageBoxA"),(UINT_PTR )&newMessageBox,(UINT_PTR *)&oldMessageBox);
-
-		// iathook((UINT_PTR )GetProcAddress(LoadLibrary("ws2_32"),"WSASend"),(UINT_PTR )&newWSASend,(UINT_PTR *)&oldWSASend);
-		//InitializeCriticalSection(&packetCaptureSection);
-		// packetCapture = fopen((char *)fnameBuf,"wb");
-		// hPacketCapture_ENCRYPT = CreateFile("\\\\.\\pipe\\mynamedpipe-encrypt",GENERIC_READ|GENERIC_WRITE,0,NULL,OPEN_EXISTING,0,NULL);
-		// hPacketCapture_DECRYPT = CreateFile("\\\\.\\pipe\\mynamedpipe-decrypt",GENERIC_READ|GENERIC_WRITE,0,NULL,OPEN_EXISTING,0,NULL);
 		
-		// iathook((UINT_PTR )GetProcAddress(LoadLibrary("ws2_32"),"send"),(UINT_PTR )&newSend,(UINT_PTR *)&oldSend);
-		// hook((UINT_PTR )GetProcAddress(LoadLibrary("CRYPTSP"),"CryptEncrypt"),(UINT_PTR )&newCryptEncrypt,(UINT_PTR *)&oldCryptEncrypt);
-		// hook((UINT_PTR )GetProcAddress(LoadLibrary("CRYPTSP"),"CryptDecrypt"),(UINT_PTR )&newCryptDecrypt,(UINT_PTR *)&oldCryptDecrypt);
-		// iathook((UINT_PTR )GetProcAddress(LoadLibrary("ws2_32"),"recv"),(UINT_PTR )&newRecv,(UINT_PTR *)&oldRecv);
-		// DeleteCriticalSection(&packetCaptureSection);
-
-		// fclose(packetCapture);
-		
+		HANDLE hThread = CreateThread(NULL,0,IPCServerThread,NULL,0,&threadId);
 		return TRUE;
       }
   return TRUE;
@@ -2140,7 +2145,7 @@ static int cs_asm_free(lua_State *L)
 		return 0;
 	}
 
-	printf("");
+	// printf(""); // ?????
 
 	a->signature = 0;
 

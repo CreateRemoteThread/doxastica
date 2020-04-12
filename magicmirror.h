@@ -30,6 +30,9 @@
 //===============================================================================================//
 #define WIN32_LEAN_AND_MEAN
 
+#ifndef DLL_MAGICMIRROR
+#define DLL_MAGICMIRROR 7
+#endif
 
 typedef HMODULE (WINAPI * LOADLIBRARYA)( LPCSTR );
 typedef FARPROC (WINAPI * GETPROCADDRESS)( HMODULE, LPCSTR );

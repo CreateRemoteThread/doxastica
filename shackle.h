@@ -9,8 +9,8 @@ static int cs_unresolve(lua_State *l);
 static int cs_memread(lua_State *L);
 static int cs_disassemble(lua_State *L);
 static int cs_free(lua_State *L);
+static int cs_asm_free(lua_State *L);
 int readfilter(unsigned int code, struct _EXCEPTION_POINTERS *ep);
-
 
 void hook(UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress);
 UINT_PTR searchForShortCave(UINT_PTR addressFrom,int minLength);

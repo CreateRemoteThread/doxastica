@@ -117,7 +117,6 @@ ULONG_PTR WINAPI ReflectiveLoader( REFLECTIVE_LOADER_INFO *preloads )
 	// uiValueC is the first entry in the import table
 	uiValueC = ( uiBaseAddress + ((PIMAGE_DATA_DIRECTORY)uiValueB)->VirtualAddress );
 	
-	
 	// itterate through all imports
 	while( ((PIMAGE_IMPORT_DESCRIPTOR)uiValueC)->Name )
 	{
@@ -157,7 +156,7 @@ ULONG_PTR WINAPI ReflectiveLoader( REFLECTIVE_LOADER_INFO *preloads )
 				uiValueB = ( uiBaseAddress + DEREF_32(uiValueD) );
 				// use GetProcAddress and patch in the address for this imported function
 				DEREF_32(uiValueA) = (ULONG_PTR)pGetProcAddress( (HMODULE)uiLibraryAddress, (LPCSTR)((PIMAGE_IMPORT_BY_NAME)uiValueB)->Name );
-				DEREF_32(uiValueA) = 0xAABBCCDD;
+				// DEREF_32(uiValueA) = 0xAABBCCDD;
 			}
 			// get the next imported function
 			uiValueA += sizeof( ULONG_PTR );
@@ -174,10 +173,11 @@ ULONG_PTR WINAPI ReflectiveLoader( REFLECTIVE_LOADER_INFO *preloads )
 	// calculate the base address delta and perform relocations (even if we load at desired image base)
 	ULONG_PTR oldLibraryAddress = (ULONG_PTR )(preloads->lpPreviousRelocBase);
 	uiLibraryAddress = uiBaseAddress; //  - ((PIMAGE_NT_HEADERS)uiHeaderValue)->OptionalHeader.ImageBase;
+	((PIMAGE_NT_HEADERS)uiHeaderValue)->OptionalHeader.ImageBase = uiLibraryAddress;
 
 	// uiValueB = the address of the relocation directory
 	uiValueB = (ULONG_PTR)&((PIMAGE_NT_HEADERS)uiHeaderValue)->OptionalHeader.DataDirectory[ IMAGE_DIRECTORY_ENTRY_BASERELOC ];
-
+	
 	// check if their are any relocations present
 	if( ((PIMAGE_DATA_DIRECTORY)uiValueB)->Size )
 	{
@@ -236,21 +236,18 @@ ULONG_PTR WINAPI ReflectiveLoader( REFLECTIVE_LOADER_INFO *preloads )
 		}
 	}
 	
-	// not sure if there's edge cases we trip over
-	// by not calling the dispatcher at the true entrypoint
-	// but we're fudging enough things anyway :)
-	
-	
-	
-	uiValueA = (ULONG_PTR )uiBaseAddress + (ULONG_PTR )(preloads->lpRVADllMain);
-	// uiValueA = (ULONG_PTR )uiBaseAddress +  ((PIMAGE_NT_HEADERS)uiHeaderValue)->OptionalHeader.AddressOfEntryPoint ;
+	// uiValueA = (ULONG_PTR )uiBaseAddress + (ULONG_PTR )(preloads->lpRVADllMain);
+	uiValueA = (ULONG_PTR )uiBaseAddress +  ((PIMAGE_NT_HEADERS)uiHeaderValue)->OptionalHeader.AddressOfEntryPoint ;
 
 	// We must flush the instruction cache to avoid stale code being used which was updated by our relocation processing.
 	pNtFlushInstructionCache( (HANDLE)-1, NULL, 0 );
 
+	// uiValueA = (ULONG_PTR )uiBaseAddress + (ULONG_PTR )(preloads->lpRVADllMain);
+
 	__asm{
 		int 3
 	}
+	// ((DLLMAIN)uiValueA)( (HINSTANCE)uiBaseAddress, DLL_PROCESS_DETACH, NULL );	
 	((DLLMAIN)uiValueA)( (HINSTANCE)uiBaseAddress, DLL_PROCESS_ATTACH, NULL );
 
 	return uiValueA;
@@ -336,7 +333,7 @@ int cs_magicmirror(lua_State *L)
 		sprintf(mbuf," [INFO] DllEntry offset from main at %p\n",(void *)((ULONG_PTR )&DllMain - uiLibraryAddress));
 		outString(hPipe,mbuf);
 
-		HANDLE threadId = CreateRemoteThread(hProcess,NULL,0,(LPTHREAD_START_ROUTINE )(remoteMemory + rl_offset),(void *)remoteMemory_carepackage,NULL,NULL);
+		HANDLE threadId = CreateRemoteThread(hProcess,NULL,5 * 1024 * 1024,(LPTHREAD_START_ROUTINE )(remoteMemory + rl_offset),(void *)remoteMemory_carepackage,NULL,NULL);
 		
 		if(threadId == NULL)
 		{

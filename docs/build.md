@@ -3,6 +3,8 @@
 doxastica is written in C/C++: it's built for compilation by CL.exe and LINK.exe
 from the windows platform SDK. to build doxastica, use the provided "build.bat".
 
+this builds with the tools from the windows 10 platform sdk
+
 invoke this as follows:
 
 - build clean:
