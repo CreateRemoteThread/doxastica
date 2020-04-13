@@ -18,6 +18,7 @@
 #include "wincrypt.h"
 #include "lua_socket.h"
 #include "magicmirror.h"
+#include "darksign.h"
 #include "xedparse\src\XEDParse.h"
 
 FILE _iob[] = {*stdin, *stdout, *stderr};
@@ -157,13 +158,13 @@ untouched user32!MessageBoxA:
 
 int WINAPI newWSASend(SOCKET s, UINT_PTR lpBuffers, DWORD dwBufferCount, UINT_PTR lpBytesSent, DWORD dwFlags, UINT_PTR lpOverlapped, UINT_PTR lpCompletionRoutine)
 {
-	OutputDebugString("lol");
+	OutputDebugString("WSA Send Hook\n");
 	return oldWSASend(s,lpBuffers,dwBufferCount,lpBytesSent,dwFlags,lpOverlapped,lpCompletionRoutine);
 }
 
 unsigned long WINAPI newMessageBox(unsigned long hwnd,char *msg,char *title,unsigned long flags)
 {
-	oldMessageBox(hwnd,"NERDZ",title,flags);
+	oldMessageBox(hwnd,msg,title,flags);
 	return 0;
 }
 
@@ -1195,6 +1196,8 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	lua_register(luaState,"listthreads",cs_listthreads);
 	lua_register(luaState,"stopthreads",cs_stopthreads);
 	lua_register(luaState,"resumethreads",cs_resumethreads);
+
+	LUAINIT_DARKSIGN;
 
 	// lua_register(luaState,"m_who_writes_to",cs_m_who_writes_to);
 	// lua_register(luaState,"m_who_reads_from",cs_m_who_reads_from);

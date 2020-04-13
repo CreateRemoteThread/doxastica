@@ -44,8 +44,9 @@ IF [%1]==[shackle32] cl /I modules /Zi /c /EHsc /I lua53 /Fomodules/search32.obj
 IF [%1]==[shackle32] cl /I modules /Zi /c /EHsc /I lua53 /Fomodules/vtable32.obj /Tp modules/vtable.c
 IF [%1]==[shackle32] cl /I modules /Zi /c /I beainclude /EHsc /I lua53 /Fomodules/pcontrol32.obj /Tp modules/pcontrol.c
 IF [%1]==[shackle32] cl /I modules /D WIN_X86 /Zi /c /I beainclude /EHsc /I lua53 /Fomodules/magicmirror32.obj /Tp modules/magicmirror.c
+IF [%1]==[shackle32] cl /I modules /Zi /c /I lua53 /I beainclude /EHsc /Fomodules/darksign32.obj /Tp modules/darksign.c
 IF [%1]==[shackle32] cl /I modules /Zi /c /I lua53 /I beainclude /EHsc /Fomodules/shackle32.obj /Tp shackle.c
-IF [%1]==[shackle32] link /DEF:shackle.def /DLL /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:shackle32.dll modules/shackle32.obj modules/lua_socket32.obj modules/vtable32.obj modules/ptrscan32.obj beasrc/BeaEngine32.obj lua32/*.obj user32.lib psapi.lib xed32/*.obj modules/search32.obj modules/pcontrol32.obj xedparse/xed2/lib/libxed_x86.lib imagehlp.lib advapi32.lib ws2_32.lib modules/magicmirror32.obj
+IF [%1]==[shackle32] link /DEF:shackle.def /DLL /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:shackle32.dll modules/shackle32.obj modules/lua_socket32.obj modules/vtable32.obj modules/ptrscan32.obj beasrc/BeaEngine32.obj lua32/*.obj user32.lib psapi.lib xed32/*.obj modules/search32.obj modules/pcontrol32.obj xedparse/xed2/lib/libxed_x86.lib imagehlp.lib advapi32.lib ws2_32.lib modules/magicmirror32.obj modules/darksign32.obj
 
 IF [%1]==[bea32] cd beasrc
 IF [%1]==[bea32] cl /I modules /Zi /c /I ../beainclude /Fomodules/BeaEngine32.obj /Tp BeaEngine.c

@@ -17,6 +17,12 @@ typedef struct _PEB_LDR_DATA //, 7 elements, 0x28 bytes
    LPVOID lpEntryInProgress;
 } PEB_LDR_DATA, * PPEB_LDR_DATA;
 
+typedef struct
+{
+	WORD	offset:12;
+	WORD	type:4;
+} IMAGE_RELOC, *PIMAGE_RELOC;
+
 // WinDbg> dt -v ntdll!_PEB_FREE_BLOCK
 typedef struct _PEB_FREE_BLOCK // 2 elements, 0x8 bytes
 {

@@ -3,7 +3,9 @@ doxastica
 
 [Lua Ref](docs/luaref.md) | [Tutorials](docs/tutorial.md) | [Development](docs/build.md) | [Special Modes](docs/tech.md)
 
-doxastica is a really bad library for injecting into processes. you definitely shouldn't use it.
+![pew](/docs/underrail.png)
+
+doxastica is a really bad library for injecting into processes. you definitely shouldn't use it. go away.
 
 credits <a name="credits"></a>
 =======

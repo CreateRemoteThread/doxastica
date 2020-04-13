@@ -312,10 +312,6 @@ int cs_magicmirror(lua_State *L)
 		sprintf(mbuf," [INFO] %d bytes of magic mirror written, remote loc is %p\n",bW,(void *)remoteMemory);
 		outString(hPipe,mbuf);
 		
-		FILE *f = fopen("c:\\projects\\doxastica\\testing\\memdump.bin","wb");
-		fwrite((void *)uiLibraryAddress,1,bW,f);
-		fclose(f);
-		
 		outString(hPipe," [INFO] assembling care package...\n");
 		REFLECTIVE_LOADER_INFO preloads;
 		preloads.lpPreviousRelocBase = (LPVOID )uiLibraryAddress;

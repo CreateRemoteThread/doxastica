@@ -48,10 +48,14 @@ typedef BOOL (WINAPI * DLLMAIN)( HINSTANCE, DWORD, LPVOID );
 #define KERNEL32DLL_HASH				0x6A4ABC5B
 #define NTDLLDLL_HASH					0x3CFA685D
 
+#ifndef DEREF_MACROS_TAG
+#define DEREF( name )*(UINT_PTR *)(name)
+#define DEREF_64( name )*(DWORD64 *)(name)
 #define DEREF_32( name )*(DWORD *)(name)
 #define DEREF_16( name )*(WORD *)(name)
-#define DEREF( name )*(BYTE *)(name)
-
+#define DEREF_8( name )*(BYTE *)(name)
+#define DEREF_MACROS_TAG
+#endif
 
 #define LOADLIBRARYA_HASH				0xEC0E4E8E
 #define GETPROCADDRESS_HASH				0x7C0DFCAA
@@ -86,11 +90,7 @@ __forceinline DWORD hash( char * c )
 
     return h;
 }
-typedef struct
-{
-	WORD	offset:12;
-	WORD	type:4;
-} IMAGE_RELOC, *PIMAGE_RELOC;
+
 //===============================================================================================//
 #endif
 //===============================================================================================//
