@@ -202,10 +202,12 @@ ULONG_PTR darksign_reflect(ULONG_PTR payload_addr, int filesize,int mode)
 	else
 	{
 		
+		#ifdef ARCHI_32
 		__asm{
 			int 3
 			mov eax, uiValueA
 		}
+		#endif
 		// need to update some structs in the PEB / TEB
 		((WINMAIN)uiValueA)( (HINSTANCE)0XCCDDCCDD, 0,"pew", SW_SHOW );
 		

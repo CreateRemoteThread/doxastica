@@ -244,9 +244,12 @@ ULONG_PTR WINAPI ReflectiveLoader( REFLECTIVE_LOADER_INFO *preloads )
 
 	// uiValueA = (ULONG_PTR )uiBaseAddress + (ULONG_PTR )(preloads->lpRVADllMain);
 
+	#ifdef ARCHI_32
 	__asm{
 		int 3
 	}
+	
+	#endif
 	// ((DLLMAIN)uiValueA)( (HINSTANCE)uiBaseAddress, DLL_PROCESS_DETACH, NULL );	
 	((DLLMAIN)uiValueA)( (HINSTANCE)uiBaseAddress, DLL_PROCESS_ATTACH, NULL );
 
@@ -309,7 +312,7 @@ int cs_magicmirror(lua_State *L)
 		WriteProcessMemory(hProcess,(LPVOID )remoteMemory,(LPCVOID )uiLibraryAddress,MAGICMIRROR_SIZE,&bW);
 		
 		VirtualProtectEx(hProcess,(LPVOID )remoteMemory,MAGICMIRROR_SIZE, PAGE_EXECUTE_READWRITE, &oldProtect);
-		sprintf(mbuf," [INFO] %d bytes of magic mirror written, remote loc is %p\n",bW,(void *)remoteMemory);
+		sprintf(mbuf," [INFO] %Id bytes of magic mirror written, remote loc is %p\n",bW,(void *)remoteMemory);
 		outString(hPipe,mbuf);
 		
 		outString(hPipe," [INFO] assembling care package...\n");
