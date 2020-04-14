@@ -65,6 +65,15 @@ of these were inspired by functionality in cheat engine:
   the argument should be dllname.dll!function. error will be printed in peek if
   the function can't be resolved. no output probably means you didn't print the
   result.
+  
+- void loadlibrary(libname):
+  does what the box says, loads the library into the current memory space (just
+  calls loadlibrary with what you pass it)
+  
+- void hook(target_func_addr,hook_func_addr,callback)
+  exposes the internal hook function, inserting a jump to hook_func_addr at the
+  start of target_func_addr, then calls (Stdcall) to "callback", with the address
+  of the old function. see luasamples/pa3.lua for usage example.
 
 ### assembler
 
