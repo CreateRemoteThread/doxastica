@@ -97,6 +97,9 @@ IF [%1]==[xed64] move xedparse\src\*.obj xed64\
 IF [%1]==[peek] cl /Zi /c /Tp peek.c
 IF [%1]==[peek] link /out:peek.exe peek.obj
 
+IF [%1]==[pwnadventure3] cl /I modules /Zi /c /I lua53 /I beainclude /EHsc /Fomodules/pwnadventure3.obj /Tp modules/pwnadventure3.c
+IF [%1]==[pwnadventure3] link /def:pwnadventure3.def /dll /out:pwnadventure3.dll modules/pwnadventure3.obj
+
 IF [%1] EQU [] ECHO build {target}. Valid targets are:
 IF [%1] EQU [] ECHO ++ bea{32,64} [PREREQ: BEA Disassembly]
 IF [%1] EQU [] ECHO ++ lua{32,64} [PREREQ: LUA Scripting]

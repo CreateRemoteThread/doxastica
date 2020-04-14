@@ -59,7 +59,7 @@ extern "C" FILE * __cdecl __iob_func(void)
 int init = 0;
 
 typedef DWORD (WINAPI * _MessageBoxA) (DWORD, LPCVOID, LPCVOID, DWORD);
-typedef DWORD (WINAPI * _send) (DWORD, char *, DWORD, DWORD);
+
 typedef DWORD (WINAPI * _WSASend) (SOCKET, UINT_PTR, DWORD, UINT_PTR, DWORD, UINT_PTR, UINT_PTR);
 
 /*
@@ -96,17 +96,14 @@ _PyRun_SimpleString real_PyRun_SimpleString = NULL;
 */
  
 _MessageBoxA oldMessageBox = NULL;
-_send oldSend = NULL;
-_send oldRecv = NULL;
+
 _CryptEncrypt oldCryptEncrypt = NULL;
 _CryptDecrypt oldCryptDecrypt = NULL;
-_WSASend oldWSASend = NULL;
+
 
 char *globalHotkeyArray[256];
 int globalSleepTime = 500;
 
-CRITICAL_SECTION packetCaptureSection = {0};
-FILE *packetCapture = NULL;
 
 HANDLE hPacketCapture_ENCRYPT = NULL;
 HANDLE hPacketCapture_DECRYPT = NULL;
@@ -155,40 +152,10 @@ untouched user32!MessageBoxA:
 
 #define LUA_MAXINPUT		512
 
-int WINAPI newWSASend(SOCKET s, UINT_PTR lpBuffers, DWORD dwBufferCount, UINT_PTR lpBytesSent, DWORD dwFlags, UINT_PTR lpOverlapped, UINT_PTR lpCompletionRoutine)
-{
-	OutputDebugString("WSA Send Hook\n");
-	return oldWSASend(s,lpBuffers,dwBufferCount,lpBytesSent,dwFlags,lpOverlapped,lpCompletionRoutine);
-}
-
 unsigned long WINAPI newMessageBox(unsigned long hwnd,char *msg,char *title,unsigned long flags)
 {
 	oldMessageBox(hwnd,msg,title,flags);
 	return 0;
-}
-
-extern "C" __declspec(dllexport) unsigned long __stdcall newSend(unsigned long socket, char *buf, unsigned long len, unsigned long flags);
-extern "C" __declspec(dllexport) unsigned long __stdcall newRecv(unsigned long socket, char *buf, unsigned long len, unsigned long flags);
-
-// doesn't give me the same calling convention =)
-extern "C" unsigned long __stdcall newSend(unsigned long socket, char *buf, unsigned long len, unsigned long flags)
-{
-	int i = oldSend(socket, buf, len, flags);
-	EnterCriticalSection(&packetCaptureSection);
-	fwrite(&len,1,sizeof(unsigned long ),packetCapture);
-	fwrite(buf,1,len,packetCapture);
-	LeaveCriticalSection(&packetCaptureSection);
-	return i;
-}
-
-extern "C" unsigned long __stdcall newRecv(unsigned long socket, char *buf, unsigned long len, unsigned long flags)
-{
-	int i = oldRecv(socket, buf, len, flags);
-	EnterCriticalSection(&packetCaptureSection);
-	fwrite(&len,1,sizeof(unsigned long ),packetCapture);
-	fwrite(buf,1,len,packetCapture);
-	LeaveCriticalSection(&packetCaptureSection);
-	return i;
 }
 
 int keyExported = 0;
@@ -649,6 +616,8 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
 
 		OutputDebugString(" - creating server thread\n");
 		
+		// initializeHooks();
+		
 		HANDLE hThread = CreateThread(NULL,0,IPCServerThread,NULL,0,&threadId);
 		return TRUE;
       }
@@ -843,6 +812,73 @@ static int loadline (lua_State *L, HANDLE hPipe, int *exitToLoop) {
   lua_assert(lua_gettop(L) == 1);
   return status;
 }
+
+typedef void (WINAPI * _hook_callback) (UINT_PTR );
+
+static int cs_loadlibrary(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(UINT_PTR )lua_tointeger(L,-1);
+	lua_pop(L,1);
+	
+	char mbuf[256];
+	
+	if(lua_gettop(L) == 1)
+	{
+		char *lname = (char *)lua_tostring(L,1);
+		sprintf(mbuf," [NFO] loading '%s'\n",lname);
+		outString(hPipe,mbuf);
+		LoadLibrary(lname);
+	}
+	else
+	{
+		outString(hPipe," [ERR] loadlibrary(libname) needs one argument\n");
+	}
+	
+	return 0;
+}
+
+static int cs_hook(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(UINT_PTR )lua_tointeger(L,-1);
+	lua_pop(L,1);
+	
+	UINT_PTR destAddress = 0;
+	UINT_PTR srcAddress = 0;
+	_hook_callback callback = 0;
+	
+	char mbuf[256];
+	
+	if(lua_gettop(L) == 3)
+	{
+		if(lua_isnumber(L,1) && lua_isnumber(L,2) && lua_isnumber(L,3))
+		{
+			destAddress = (UINT_PTR )lua_tointeger(L,1);
+			srcAddress = (UINT_PTR )lua_tointeger(L,2);
+			callback = (_hook_callback )lua_tointeger(L,3);
+			sprintf(mbuf," [NFO] hooking %p with %p\n",(void *)destAddress,(void *)srcAddress);
+			outString(hPipe,mbuf);
+			UINT_PTR saveAddr = 0;
+			hook(destAddress,srcAddress,&saveAddr);
+			sprintf(mbuf," [NFO] pinging callback with old address %p\n",(void *)saveAddr);
+			outString(hPipe,mbuf);
+			callback(saveAddr);
+		}
+		else
+		{
+			sprintf(mbuf," [ERR] hook needs integer arguments. did you resolve your arguments?\n");
+			outString(hPipe,mbuf);
+		}
+	}
+	else
+	{
+		sprintf(mbuf," [ERR] hook(target,hookfunc,callback) needs 3 argument\n");
+		outString(hPipe,mbuf);
+	}
+	return 0;
+}
+
 
 static int cs_print(lua_State *L)
 {
@@ -1182,6 +1218,8 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	lua_register(luaState,"db",cs_db);
 	lua_register(luaState,"dw",cs_dw);
 	lua_register(luaState,"dd",cs_dd);
+	lua_register(luaState,"hook",cs_hook);
+	lua_register(luaState,"loadlibrary",cs_loadlibrary);
 	lua_register(luaState,"magicmirror",cs_magicmirror);
 	lua_register(luaState,"fetch_byte",cs_fetch_byte);
 	lua_register(luaState,"fetch_word",cs_fetch_word);

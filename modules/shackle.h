@@ -12,6 +12,9 @@ static int cs_free(lua_State *L);
 static int cs_asm_free(lua_State *L);
 int readfilter(unsigned int code, struct _EXCEPTION_POINTERS *ep);
 
+static int cs_hook(lua_State *L);
+static int cs_loadlibrary(lua_State *L);
+
 void hook(UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress);
 UINT_PTR searchForShortCave(UINT_PTR addressFrom,int minLength);
 DWORD WINAPI IPCServerThread( LPVOID lpParam );

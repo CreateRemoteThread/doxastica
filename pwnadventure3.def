@@ -1,0 +1,5 @@
+LIBRARY pwnadventure3
+EXPORTS callback
+EXPORTS newSend
+EXPORTS newRecv
+EXPORTS DllMain
