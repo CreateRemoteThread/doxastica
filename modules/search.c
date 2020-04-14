@@ -589,3 +589,32 @@ int cs_search_new(lua_State *L)
 	lua_pushlightuserdata(L,(void *)results);
 	return 1;
 }
+
+
+void printShortResults(HANDLE hPipe,lua_State *L,searchResult *m)
+{
+	char mbuf[1024];
+	if(validateSearchResult(m) == 0)
+	{
+		return;
+	}
+	if(m->numSolutions <= 10)
+	{
+        // luaL_dostring(L,"results = {}");
+		int i = 0;
+		for( ; i < m->numSolutions; i++)
+		{
+			sprintf(mbuf," [%d.] 0x%p\n",i,(void *)(m->arraySolutions[i]));
+			outString(hPipe,mbuf);
+            // sprintf(mbuf,"results[%d] = 0x%0x",i,m->arraySolutions[i]);
+            // luaL_dostring(L,mbuf);
+		}
+	}
+	else
+	{
+		sprintf(mbuf," %d results\n",m->numSolutions);
+		outString(hPipe,mbuf);
+	}
+	return;
+}
+

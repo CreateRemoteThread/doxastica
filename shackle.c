@@ -33,9 +33,8 @@ extern "C" FILE * __cdecl __iob_func(void)
 #define EOFMARK		"<eof>"
 #define marklen		(sizeof(EOFMARK)/sizeof(char) - 1)
 
-void printShortResults(HANDLE hPipe,lua_State *L,searchResult *m);
 
-#define VERSTRING "[v0p2 anarchy's heart]"
+#define VERSTRING "[v0p9]"
 
 #ifdef ARCHI_64
 	#define ARCHI 64
@@ -1680,6 +1679,62 @@ static int cs_db(lua_State *L)
 			return 0;
 		}
 	}
+	else if(lua_gettop(L) == 2)
+	{
+		int size = 32;
+		BYTE *addrTo = (BYTE *)(UINT_PTR )lua_tointeger(L,1);
+		int readCount = lua_tointeger(L,2);
+		BYTE value = 0;
+		__try{
+			int readCounter = 0;
+			// sprintf(mbuf," [0x%p] %08x\n",(void *)(UINT_PTR )addrTo, value);
+			// outString(hPipe,mbuf);
+			char asc_repr[17];
+			asc_repr[16] = '\0';
+			while(readCounter != readCount)
+			{
+				value = addrTo[readCounter];
+				char mbuf[1024];
+				
+				if(readCounter % 16 == 0)
+				{
+					if(readCounter != 0)
+					{
+						outString(hPipe,asc_repr);
+						outString(hPipe,"\n");
+					}
+					sprintf(mbuf," [0x%p] ",(void *)(UINT_PTR )addrTo);
+					outString(hPipe,mbuf);
+				}
+				sprintf(mbuf,"%02x ",(unsigned char )value);
+				outString(hPipe,mbuf);
+				if(isprint(value))
+				{
+					asc_repr[readCounter % 16] = value;
+				}
+				else
+				{
+					asc_repr[readCounter % 16] = '.';
+				}
+				readCounter++;
+			}
+			while(readCounter % 16 != 0)
+			{
+				asc_repr[readCounter] = '.';
+				outString(hPipe,".. ");
+				readCounter++;
+			}
+			outString(hPipe,asc_repr);
+			outString(hPipe,"\n");
+			lua_pushinteger(L,readCounter);
+			return 1;
+		}
+		__except(true)
+		{
+			outString(hPipe," [ERR] cant read here, check memory protection\n");
+			return 0;
+		}
+	}
 	else
 	{
 		outString(hPipe," [ERR] db(dest) requires 1 argument\n");
@@ -1704,6 +1759,43 @@ static int cs_dw(lua_State *L)
 			sprintf(mbuf," [0x%p] %04x\n",(void *)(UINT_PTR )addrTo, value);
 			outString(hPipe,mbuf);
 			lua_pushinteger(L,value);
+			return 1;
+		}
+		__except(true)
+		{
+			outString(hPipe," [ERR] cant read here, check memory protection\n");
+			return 0;
+		}
+	}
+	else if(lua_gettop(L) == 2)
+	{
+		int size = 32;
+		WORD *addrTo = (WORD *)(UINT_PTR )lua_tointeger(L,1);
+		int readCount = lua_tointeger(L,2);
+		WORD value = 0;
+		__try{
+			int readCounter = 0;
+			// sprintf(mbuf," [0x%p] %08x\n",(void *)(UINT_PTR )addrTo, value);
+			// outString(hPipe,mbuf);
+			while(readCounter != readCount)
+			{
+				value = addrTo[readCounter];
+				char mbuf[1024];
+				if(readCounter % 8 == 0)
+				{
+					if(readCounter != 0)
+					{
+						outString(hPipe,"\n");
+					}
+					sprintf(mbuf," [0x%p] ",(void *)(UINT_PTR )addrTo);
+					outString(hPipe,mbuf);
+				}
+				sprintf(mbuf,"%04x ",value);
+				outString(hPipe,mbuf);
+				readCounter++;
+			}
+			outString(hPipe,"\n");
+			lua_pushinteger(L,readCounter);
 			return 1;
 		}
 		__except(true)
@@ -1738,6 +1830,43 @@ static int cs_dd(lua_State *L)
 			sprintf(mbuf," [0x%p] %08x\n",(void *)(UINT_PTR )addrTo, value);
 			outString(hPipe,mbuf);
 			lua_pushinteger(L,value);
+			return 1;
+		}
+		__except(true)
+		{
+			outString(hPipe," [ERR] cant read here, check memory protection\n");
+			return 0;
+		}
+	}
+	else if(lua_gettop(L) == 2)
+	{
+		int size = 32;
+		DWORD *addrTo = (DWORD *)(UINT_PTR )lua_tointeger(L,1);
+		int readCount = lua_tointeger(L,2);
+		DWORD value = 0;
+		__try{
+			int readCounter = 0;
+			// sprintf(mbuf," [0x%p] %08x\n",(void *)(UINT_PTR )addrTo, value);
+			// outString(hPipe,mbuf);
+			while(readCounter != readCount)
+			{
+				value = addrTo[readCounter];
+				char mbuf[1024];
+				if(readCounter % 4 == 0)
+				{
+					if(readCounter != 0)
+					{
+						outString(hPipe,"\n");
+					}
+					sprintf(mbuf," [0x%p] ",(void *)(UINT_PTR )addrTo);
+					outString(hPipe,mbuf);
+				}
+				sprintf(mbuf,"%08x ",(DWORD )value);
+				outString(hPipe,mbuf);
+				readCounter++;
+			}
+			outString(hPipe,"\n");
+			lua_pushinteger(L,readCounter);
 			return 1;
 		}
 		__except(true)
@@ -2330,33 +2459,6 @@ static int cs_assemble(lua_State *L)
 	}
 	
 	return 0;
-}
-
-void printShortResults(HANDLE hPipe,lua_State *L,searchResult *m)
-{
-	char mbuf[1024];
-	if(validateSearchResult(m) == 0)
-	{
-		return;
-	}
-	if(m->numSolutions <= 10)
-	{
-        // luaL_dostring(L,"results = {}");
-		int i = 0;
-		for( ; i < m->numSolutions; i++)
-		{
-			sprintf(mbuf," [%d.] 0xp\n",i,(void *)(m->arraySolutions[i]));
-			outString(hPipe,mbuf);
-            // sprintf(mbuf,"results[%d] = 0x%0x",i,m->arraySolutions[i]);
-            // luaL_dostring(L,mbuf);
-		}
-	}
-	else
-	{
-		sprintf(mbuf," %d results\n",m->numSolutions);
-		outString(hPipe,mbuf);
-	}
-	return;
 }
 
 static int cs_bind(lua_State *L)
