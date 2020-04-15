@@ -47,6 +47,7 @@ DWORD globalPid = 0;
 #define OPM_FLAGS_SNAKESALIVE 2
 #define OPM_FLAGS_MSCOREE 4
 #define OPM_FLAGS_WAIT 8
+#define OPM_FLAGS_PEEK 16
 
 int globalWait = 0;
 int globalTest = 0;
@@ -176,6 +177,10 @@ void parseArgs(int argc, char **argv)
 			#else
 			opFlags |= OPM_FLAGS_SNAKESALIVE;
 			#endif
+		}
+		else if (strcmp(argv[i],"--flag-peek") == 0)
+		{
+			opFlags |= OPM_FLAGS_PEEK;
 		}
 		else if (strcmp(argv[i],"--flag-dnr") == 0)
 		{
@@ -779,6 +784,14 @@ int main(int argc,char **argv)
 		VirtualProtectEx(hProcess,(LPVOID )entryPoint,1,oldProtect,&discardProtect);
 		ResumeThread(pi.hThread);
 		
+		if(opFlags & OPM_FLAGS_PEEK)
+		{
+			printf(" .. launching peek ..\n");
+			sprintf(snakesalive_confirm,"peek %d",pi.dwProcessId);
+
+			system(snakesalive_confirm);
+			free(snakesalive_confirm);
+		}
 		printf(" [INFO] bye!");
 		free(exeInput);
 		free(dllInput);
@@ -976,6 +989,14 @@ int main(int argc,char **argv)
 		context.PC_REG = entryPoint;
 		SetThreadContext(hThread,&context);
 		ResumeThread(pi.hThread);
+	}
+	
+	if(opFlags & OPM_FLAGS_PEEK)
+	{
+		char cmdbuf[50];
+		printf(" .. launching peek ..\n");
+		sprintf(cmdbuf,"peek %d",pi.dwProcessId);
+		system(cmdbuf);
 	}
 	
 	printf(" [INFO] bye!");

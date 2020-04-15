@@ -20,6 +20,25 @@ extern "C" __declspec(dllexport) unsigned long __stdcall newRecv(unsigned long s
 extern "C" __declspec(dllexport) unsigned long __stdcall test0();
 extern "C" __declspec(dllexport) unsigned long __stdcall test2(UINT_PTR a, UINT_PTR b);
 
+extern "C" __declspec(dllexport) unsigned long __stdcall proxySend(unsigned long *buf, unsigned long len);
+
+
+typedef DWORD (WINAPI * _send) (DWORD, char *, DWORD, DWORD);
+_send oldSend = NULL;
+_send oldRecv = NULL;
+
+unsigned long lastSock = 0;
+
+extern "C" unsigned long __stdcall proxySend(unsigned long *buf, unsigned long len)
+{
+	OutputDebugString("proxySend called...\n");
+	if(lastSock != 0)
+	{
+		int i = oldSend(lastSock, (char *)buf, len, 0);
+		return i;
+	}
+}
+
 extern "C" unsigned long __stdcall test0()
 {
 	OutputDebugString("test0: called\n");
@@ -29,18 +48,19 @@ extern "C" unsigned long __stdcall test0()
 extern "C" unsigned long __stdcall test2(UINT_PTR a, UINT_PTR b)
 {
 	char mbuf[1024];
+	__asm{
+			int 3
+		};
 	sprintf(mbuf,"test2: called. %p %p\n",(void *)a,(void *)b);
 	OutputDebugString(mbuf);
 	if(a == 0x1234 && b == 0x5678)
 	{
+		
 		OutputDebugString("test2: unlocked.\n");
 	}
 	return 0;
 }
 
-typedef DWORD (WINAPI * _send) (DWORD, char *, DWORD, DWORD);
-_send oldSend = NULL;
-_send oldRecv = NULL;
 
 
 HANDLE hPipe;
@@ -59,8 +79,13 @@ unsigned long reuse_socket = 0;
 // doesn't give me the same calling convention =)
 extern "C" unsigned long __stdcall newSend(unsigned long socket, char *buf, unsigned long len, unsigned long flags)
 {
+	if(buf[0] == 0x2a)
+	{
+		lastSock = socket;
+	}
 	if(len > 5)
 	{
+		/*
 		if(buf[0] == 0x24 && buf[1] == 0x62)
 		{
 			buf[18] = 0xFF;
@@ -68,6 +93,7 @@ extern "C" unsigned long __stdcall newSend(unsigned long socket, char *buf, unsi
 			buf[20] = 0xFF;
 			buf[21] = 0xFF;
 		}
+		*/
 	}
 	int i = oldSend(socket, buf, len, flags);
 	if(reuse_socket == 0)
