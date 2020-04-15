@@ -39,7 +39,6 @@ IF [%1]==[shackle64] cl /I modules /D ARCHI_64 /Zi /c /I lua53 /I beainclude /EH
 IF [%1]==[shackle64] cl /I modules /D ARCHI_64 /Zi /c /I lua53 /I beainclude /EHsc /Fomodules/darksign64.obj /Tp modules/darksign.c
 IF [%1]==[shackle64] link /DEF:shackle.def /DLL /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:shackle64.dll modules/shackle64.obj modules/lua_socket64.obj modules/vtable64.obj modules/ptrscan64.obj beasrc/BeaEngine64.obj lua64/*.obj user32.lib psapi.lib xed64/*.obj modules/search64.obj modules/pcontrol64.obj xedparse/xed2/lib/libxed_x64.lib imagehlp.lib ws2_32.lib modules/magicmirror64.obj modules/darksign64.obj
 
-IF [%1]==[shackle32] del shackle32.dll modules\shackle32.obj modules\lua_socket32.obj modules\vtable32.obj modules\ptrscan32.obj modules\search32.obj modulesspcontrol32.obj modulessmagicmirror32.obj moduless\darksign32.obj
 IF [%1]==[shackle32] cl /I modules /Zi /c /I lua53 /EHsc /Fomodules/ptrscan32.obj /Tp modules/ptrscan.c
 IF [%1]==[shackle32] cl /I modules /Zi /c /I lua53 /EHsc /Fomodules/lua_socket32.obj /Tp modules/lua_socket.c
 IF [%1]==[shackle32] cl /I modules /Zi /c /EHsc /I lua53 /Fomodules/search32.obj /Tp modules/search.c
@@ -48,7 +47,7 @@ IF [%1]==[shackle32] cl /I modules /Zi /c /I beainclude /EHsc /I lua53 /Fomodule
 IF [%1]==[shackle32] cl /I modules /D WIN_X86 /Zi /c /I beainclude /EHsc /I lua53 /Fomodules/magicmirror32.obj /Tp modules/magicmirror.c
 IF [%1]==[shackle32] cl /I modules /Zi /c /I lua53 /I beainclude /EHsc /Fomodules/darksign32.obj /Tp modules/darksign.c
 IF [%1]==[shackle32] cl /I modules /Zi /c /I lua53 /I beainclude /EHsc /Fomodules/shackle32.obj /Tp shackle.c
-IF [%1]==[shackle32] link @utils\link32.txt
+IF [%1]==[shackle32] link /DEF:shackle.def /DLL /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:shackle32.dll modules/shackle32.obj modules/lua_socket32.obj modules/vtable32.obj modules/ptrscan32.obj beasrc/BeaEngine32.obj lua32/*.obj user32.lib psapi.lib xed32/*.obj modules/search32.obj modules/pcontrol32.obj xedparse/xed2/lib/libxed_x86.lib imagehlp.lib advapi32.lib ws2_32.lib modules/magicmirror32.obj modules/darksign32.obj
 
 IF [%1]==[bea32] cd beasrc
 IF [%1]==[bea32] cl /Zi /c /I ../beainclude /FoBeaEngine32.obj /Tp BeaEngine.c

@@ -152,8 +152,5 @@ such as labels. sorry =(
 
 - dofile(filename) can load and execute a (lua) file
 
-- call(func_addr,args...) can call any arbitrary address as if it were a function, and
+- call(func_name,args...) can call any arbitrary address as if it were a function, and
   pass any number of arbitrary arguments
-  
-- catchthis(func_addr,save_loc) can steal the "this" pointer out of a C++ function call
-  by crafting a fast code cave (jmp->mov loc,ecx->jmp).

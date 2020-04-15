@@ -33,6 +33,7 @@ extern "C" FILE * __cdecl __iob_func(void)
 #define EOFMARK		"<eof>"
 #define marklen		(sizeof(EOFMARK)/sizeof(char) - 1)
 
+
 #define VERSTRING "[v0p9]"
 
 #ifdef ARCHI_64
@@ -884,11 +885,11 @@ static int cs_call(lua_State *L)
 		int argmax = lua_gettop(L);
 		for(argCounter = 2;argCounter - 2 < argmax - 1; argCounter++)
 		{
-			if(lua_isinteger(L,(argmax - argCounter) + 2))
+			if(lua_isinteger(L,argCounter))
 			{
 				argAsUint = (UINT_PTR )lua_tointeger(L,(argmax - argCounter) + 2);
 			}
-			else if(lua_isstring(L,(argmax - argCounter) + 2))
+			else if(lua_isstring(L,argCounter))
 			{
 				argAsUint = (UINT_PTR )lua_tostring(L,(argmax - argCounter) + 2);
 			}
@@ -954,14 +955,6 @@ static int cs_loadlibrary(lua_State *L)
 	
 	return 0;
 }
-
-int test(int argc, char **argv)
-{
-	printf("test");
-	return 0;
-	
-}
-
 static int cs_hook(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
@@ -1343,7 +1336,6 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	lua_register(luaState,"dw",cs_dw);
 	lua_register(luaState,"dd",cs_dd);
 	lua_register(luaState,"hook",cs_hook);
-	// lua_register(luaState,"catchthis",cs_catchthis);
 	lua_register(luaState,"call",cs_call);
 	lua_register(luaState,"loadlibrary",cs_loadlibrary);
 	lua_register(luaState,"magicmirror",cs_magicmirror);

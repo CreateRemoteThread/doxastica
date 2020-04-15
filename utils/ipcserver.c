@@ -36,7 +36,6 @@ int main(int argc, char **argv)
 	
 	char staticbuf[1024];
 	int i = 0;
-	int packetCounter = 0;
 	char *readHead;
 	fConnected = ConnectNamedPipe(hPipe,NULL) ? TRUE : (GetLastError() == ERROR_PIPE_CONNECTED);
 	if (fConnected)
@@ -44,13 +43,6 @@ int main(int argc, char **argv)
 		printf("got a connection! pew pew pew");
 		while(1)
 		{
-			// type and recover.
-			if(packetCounter % 50 == 0 && packetCounter != 0)
-			{
-				fflush(recover);
-				packetCounter = 0;
-			}
-			packetCounter += 1;
 			fSuccess = ReadFile(hPipe,&cbuf,sizeof(cmdbuf),&cbBytesRead,NULL);
 			if (!fSuccess || cbBytesRead == 0)
 			{
