@@ -3,3 +3,5 @@ EXPORTS callback
 EXPORTS newSend
 EXPORTS newRecv
 EXPORTS DllMain
+EXPORTS test0
+EXPORTS test2

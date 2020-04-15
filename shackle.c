@@ -813,6 +813,124 @@ static int loadline (lua_State *L, HANDLE hPipe, int *exitToLoop) {
   return status;
 }
 
+typedef UINT_PTR (WINAPI * _call_noargs) ();
+
+static int cs_call(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(UINT_PTR )lua_tointeger(L,-1);
+	lua_pop(L,1);
+	
+	char mbuf[256];
+	UINT_PTR ping_addr = NULL;
+
+	#ifdef ARCHI_64
+	sprintf(mbuf," [ERR] flexible call not supported in 64-bit architecture (yet!)\n");
+	outString(hPipe,mbuf);
+	return 0;
+	#endif
+	
+	UINT_PTR call_addr = 0;
+	UINT_PTR retval;
+
+	if(lua_gettop(L) == 1)
+	{
+		if(lua_isinteger(L,1))
+		{
+			call_addr = (UINT_PTR )lua_tointeger(L,1);
+			sprintf(mbuf," [CALL] calling function with no arguments\n");
+			outString(hPipe,mbuf);
+			retval = ((_call_noargs )call_addr)();
+			lua_pushinteger(L,retval);
+			return 1;
+		}
+	}
+	else if(lua_gettop(L) > 1)
+	{
+		/*
+			allocateSpace:
+			5 x args (68 xx xx xx xx)
+			5 x call (E8 xx xx xx xx)
+			1 x int 3
+		*/
+		call_addr = (UINT_PTR )lua_tointeger(L,1);
+		size_t allocateSpace = ((lua_gettop(L) + 1) * 5) + 1 + 1;
+		/*		
+		  LPVOID lpAddress,
+		  SIZE_T dwSize,
+		  DWORD  flAllocationType,
+		  DWORD  flProtect
+		);
+		*/
+		sprintf(mbuf," [CALL] allocating %d bytes for spelunking\n",allocateSpace);
+		outString(hPipe,mbuf);
+		char *codeCave = (char *)VirtualAlloc(NULL,allocateSpace,MEM_COMMIT | MEM_RESERVE,PAGE_READWRITE);
+		if(codeCave == NULL)
+		{
+			sprintf(mbuf," [CALL] VirtualAlloc of %d bytes failed\n",allocateSpace);
+			outString(hPipe,mbuf);
+		}
+		int writeHead = 0;
+		codeCave[writeHead++] = '\x90';
+		int argCounter = 0;
+		// wierd calc here.
+		UINT_PTR argAsUint = 0;
+		/*
+			00190001 6834120000      push    1234h
+			00190006 6878560000      push    5678h
+			0019000b 6878560000      push    5678h -- why?
+			00190010 6878560000      push    5678h -- why?
+			00190015 e8ddccbbaa      call    aad4ccf7 -- fix this later. in 32-bit, this should be fine.
+		*/
+		int argmax = lua_gettop(L);
+		for(argCounter = 2;argCounter - 2 < argmax - 1; argCounter++)
+		{
+			if(lua_isinteger(L,argCounter))
+			{
+				argAsUint = (UINT_PTR )lua_tointeger(L,(argmax - argCounter) + 2);
+			}
+			else if(lua_isstring(L,argCounter))
+			{
+				argAsUint = (UINT_PTR )lua_tostring(L,(argmax - argCounter) + 2);
+			}
+			codeCave[writeHead++] = '\x68';
+			((UINT_PTR *)((UINT_PTR )codeCave + writeHead))[0] = argAsUint;
+			writeHead += sizeof(UINT_PTR);
+			sprintf(mbuf," [CALL] writing 'push 0x%p'\n",(void *)argAsUint);
+			outString(hPipe,mbuf);
+		}
+		
+		// outString(hPipe,mbuf);
+		codeCave[writeHead++] = '\xE8';
+		
+		sprintf(mbuf," [CALL] writing call to %p\n",(void *)((UINT_PTR )call_addr - (UINT_PTR )codeCave - (UINT_PTR )writeHead - 4));
+		outString(hPipe,mbuf);
+		((UINT_PTR *)((UINT_PTR )codeCave + writeHead))[0] = ((UINT_PTR )call_addr - (UINT_PTR )codeCave - (UINT_PTR )writeHead - 4);
+		writeHead += 4;
+		// return.
+		codeCave[writeHead++] = '\xC3';
+		DWORD discard;
+		sprintf(mbuf," [CALL] VirtualProtect to PAGE_EXECUTE_READ\n");
+		outString(hPipe,mbuf);
+		VirtualProtect((LPVOID )codeCave,allocateSpace,PAGE_EXECUTE_READ,&discard);
+		sprintf(mbuf," [CALL] transferring control to %p\n",(void *)codeCave);
+		outString(hPipe,mbuf);
+		retval = ((_call_noargs )(UINT_PTR )codeCave)();
+		VirtualFree(codeCave,allocateSpace,MEM_RELEASE);
+		lua_pushinteger(L,retval);
+		return 1;
+	}
+	else
+	{
+		sprintf(mbuf," [CALL] call(func_ptr,args...) needs at least 1 argument\n");
+		outString(hPipe,mbuf);
+	}
+	
+	
+	return 0;
+}
+
+
 typedef void (WINAPI * _hook_callback) (UINT_PTR );
 
 static int cs_loadlibrary(lua_State *L)
@@ -837,7 +955,6 @@ static int cs_loadlibrary(lua_State *L)
 	
 	return 0;
 }
-
 static int cs_hook(lua_State *L)
 {
 	lua_getglobal(L,"__hpipe");
@@ -1219,6 +1336,7 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	lua_register(luaState,"dw",cs_dw);
 	lua_register(luaState,"dd",cs_dd);
 	lua_register(luaState,"hook",cs_hook);
+	lua_register(luaState,"call",cs_call);
 	lua_register(luaState,"loadlibrary",cs_loadlibrary);
 	lua_register(luaState,"magicmirror",cs_magicmirror);
 	lua_register(luaState,"fetch_byte",cs_fetch_byte);

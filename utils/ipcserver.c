@@ -52,15 +52,6 @@ int main(int argc, char **argv)
 			
 			fwrite(&cbuf,sizeof(cbuf),1,recover);
 			
-			if(cbuf.type == 5555)
-			{
-				printf(" ---------------- SEND ---------------- \n");
-			}
-			else
-			{
-				// printf(" ---------------- RECV ---------------- \n");
-			}
-			
 			if(cbuf.size < 1024)
 			{
 				// databuf = (char *)malloc(cbuf.size);
@@ -76,6 +67,18 @@ int main(int argc, char **argv)
 				if(cbuf.type != TYPE_SEND)
 				{
 					continue;
+				}
+				if(staticbuf[0] == 0x6d)
+				{
+					continue;
+				}
+				if(cbuf.type == TYPE_SEND)
+				{
+					printf(" ---------------- SEND ---------------- \n");
+				}
+				else
+				{
+					printf(" ---------------- RECV ---------------- \n");
 				}
 				for(i = 0;i < cbuf.size;i++)
 				{
@@ -97,6 +100,14 @@ int main(int argc, char **argv)
 					break;
 				}
 				fwrite(databuf,cbuf.size,1,recover);
+				if(cbuf.type == TYPE_SEND)
+				{
+					printf(" ---------------- SEND ---------------- \n");
+				}
+				else
+				{
+					printf(" ---------------- RECV ---------------- \n");
+				}
 				// readHead = databuf;
 				for(i = 0;i < cbuf.size;i++)
 				{

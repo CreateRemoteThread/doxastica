@@ -151,3 +151,6 @@ such as labels. sorry =(
 ### handy lua stuff
 
 - dofile(filename) can load and execute a (lua) file
+
+- call(func_name,args...) can call any arbitrary address as if it were a function, and
+  pass any number of arbitrary arguments

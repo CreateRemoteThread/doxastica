@@ -16,6 +16,28 @@ CRITICAL_SECTION packetCaptureSection = {0};
 extern "C" __declspec(dllexport) unsigned long __stdcall newSend(unsigned long socket, char *buf, unsigned long len, unsigned long flags);
 extern "C" __declspec(dllexport) unsigned long __stdcall newRecv(unsigned long socket, char *buf, unsigned long len, unsigned long flags);
 
+
+extern "C" __declspec(dllexport) unsigned long __stdcall test0();
+extern "C" __declspec(dllexport) unsigned long __stdcall test2(UINT_PTR a, UINT_PTR b);
+
+extern "C" unsigned long __stdcall test0()
+{
+	OutputDebugString("test0: called\n");
+	return 0;
+}
+
+extern "C" unsigned long __stdcall test2(UINT_PTR a, UINT_PTR b)
+{
+	char mbuf[1024];
+	sprintf(mbuf,"test2: called. %p %p\n",(void *)a,(void *)b);
+	OutputDebugString(mbuf);
+	if(a == 0x1234 && b == 0x5678)
+	{
+		OutputDebugString("test2: unlocked.\n");
+	}
+	return 0;
+}
+
 typedef DWORD (WINAPI * _send) (DWORD, char *, DWORD, DWORD);
 _send oldSend = NULL;
 _send oldRecv = NULL;
@@ -32,10 +54,26 @@ struct cmdbuf
 struct cmdbuf crit_cmdbuf;
 DWORD bytesWritten;
 
+unsigned long reuse_socket = 0;
+
 // doesn't give me the same calling convention =)
 extern "C" unsigned long __stdcall newSend(unsigned long socket, char *buf, unsigned long len, unsigned long flags)
 {
+	if(len > 5)
+	{
+		if(buf[0] == 0x24 && buf[1] == 0x62)
+		{
+			buf[18] = 0xFF;
+			buf[19] = 0xFF;
+			buf[20] = 0xFF;
+			buf[21] = 0xFF;
+		}
+	}
 	int i = oldSend(socket, buf, len, flags);
+	if(reuse_socket == 0)
+	{
+		reuse_socket = socket;
+	}
 	EnterCriticalSection(&packetCaptureSection);
 	/*
 	fwrite(&len,1,sizeof(unsigned long ),packetCapture);
@@ -64,6 +102,7 @@ extern "C" unsigned long __stdcall newRecv(unsigned long socket, char *buf, unsi
 	LeaveCriticalSection(&packetCaptureSection);
 	return i;
 }
+
 
 extern "C" void __stdcall callback(ULONG_PTR addr)
 {
