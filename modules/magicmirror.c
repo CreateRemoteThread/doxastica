@@ -24,7 +24,7 @@
 // THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR 
 // OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE 
 // POSSIBILITY OF SUCH DAMAGE.
-//===============================================================================================//
+//=============================================================================-==================//
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
@@ -332,7 +332,7 @@ int cs_magicmirror(lua_State *L)
 		sprintf(mbuf," [INFO] DllEntry offset from main at %p\n",(void *)((ULONG_PTR )&DllMain - uiLibraryAddress));
 		outString(hPipe,mbuf);
 
-		HANDLE threadId = CreateRemoteThread(hProcess,NULL,5 * 1024 * 1024,(LPTHREAD_START_ROUTINE )(remoteMemory + rl_offset),(void *)remoteMemory_carepackage,NULL,NULL);
+		HANDLE threadId = CreateRemoteThread(hProcess,NULL,5 * 1024 * 1024,(LPTHREAD_START_ROUTINE )(remoteMemory + rl_offset),(void *)remoteMemory_carepackage,(DWORD )NULL,NULL);
 		
 		if(threadId == NULL)
 		{

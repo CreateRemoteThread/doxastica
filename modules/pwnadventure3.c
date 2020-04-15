@@ -1,9 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <windows.h>
+extern "C"{
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
+}
 #include <tlhelp32.h>
 #include <psapi.h>
 #include "shackle.h"

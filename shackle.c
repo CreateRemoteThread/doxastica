@@ -3,30 +3,40 @@
 #include <psapi.h>
 #include "beaengine\beaengine.h"
 #include <stdlib.h>
+extern "C"
+{
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
+}
 #include <signal.h>
 #include <imagehlp.h>
 #include <ctype.h>
 #include <winnt.h>
 #include "shackle.h"
+#include "pcontrol.h"
+extern "C"
+{
 #include "search.h"
 #include "ptrscan.h"
-#include "pcontrol.h"
+
 #include "vtable.h"
 #include "wincrypt.h"
 #include "lua_socket.h"
 #include "magicmirror.h"
 #include "darksign.h"
+}
 #include "xedparse\src\XEDParse.h"
 
-FILE _iob[] = {*stdin, *stdout, *stderr};
+int validate_asm(asmBuffer *a);
+
+extern "C" FILE _iob[];
 
 extern "C" FILE * __cdecl __iob_func(void)
 {
     return _iob;
 }
+
 
 #define WIN32_LEAN_AND_MEAN
 
@@ -2324,14 +2334,6 @@ static int cs_hexdump(lua_State *L)
 	return 0;
 }
 
-void outString(HANDLE hPipe, char *thisMsg)
-{
-	DWORD bytesWritten = 0;
-	WriteFile(hPipe,thisMsg,strlen(thisMsg) + 1,&bytesWritten,NULL);
-	OutputDebugString(thisMsg);
-	return;
-}
-
 int validate_asm(asmBuffer *a)
 {
 	__try
@@ -2716,6 +2718,14 @@ DWORD WINAPI hotkeyThread(LPVOID param)
 		}
 	}
 	__unregisterThread(GetCurrentThreadId());
+}
+
+extern "C" void outString(HANDLE hPipe, char *thisMsg)
+{
+	DWORD bytesWritten = 0;
+	WriteFile(hPipe,thisMsg,strlen(thisMsg) + 1,&bytesWritten,NULL);
+	OutputDebugString(thisMsg);
+	return;
 }
 
 char *shortName(char *fullName)

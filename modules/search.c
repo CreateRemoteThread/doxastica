@@ -23,7 +23,7 @@ int page_search_dword(UINT_PTR d,int pageSize,int *solutionCount, UINT_PTR *solu
 				solutionCount[0] += 1;
 			}
 		}
-		__except(true)
+		__except(TRUE)
 		{
 			return 0;
 		}
@@ -49,7 +49,7 @@ int page_search_word(UINT_PTR d,int pageSize,int *solutionCount, UINT_PTR *solut
 				solutionCount[0] += 1;
 			}
 		}
-		__except(true)
+		__except(TRUE)
 		{
 			return 0;
 		}
@@ -73,7 +73,7 @@ int page_search_pattern(UINT_PTR d,int pageSize,int *solutionCount, UINT_PTR *so
 				solutionCount[0] += 1;
 			}
 		}
-		__except(true)
+		__except(TRUE)
 		{
 			return 0;
 		}
@@ -99,7 +99,7 @@ int page_search_byte(UINT_PTR d,int pageSize,int *solutionCount, UINT_PTR *solut
 				solutionCount[0] += 1;
 			}
 		}
-		__except(true)
+		__except(TRUE)
 		{
 			return 0;
 		}
@@ -129,7 +129,7 @@ int search_filter_dword(searchResult *m, DWORD newvalue)
 				remainingSolutions += 1;
 			}
 		}
-		__except(true)
+		__except(TRUE)
 		{
 			// nothing happens here.
 		}
@@ -157,7 +157,7 @@ int search_filter_word(searchResult *m, WORD newvalue)
 				remainingSolutions += 1;
 			}
 		}
-		__except(true)
+		__except(TRUE)
 		{
 			// nothing happens here.
 		}
@@ -185,7 +185,7 @@ int search_filter_pattern(searchResult *m, char *patternToMatch, size_t patternT
 				remainingSolutions += 1;
 			}
 		}
-		__except(true)
+		__except(TRUE)
 		{
 			// nothing happens here.
 		}
@@ -214,7 +214,7 @@ int search_filter_byte(searchResult *m, BYTE newvalue)
 				remainingSolutions += 1;
 			}
 		}
-		__except(true)
+		__except(TRUE)
 		{
 			// nothing happens here.
 		}
@@ -240,7 +240,7 @@ int validateSearchResult(searchResult *m)
 			return 0;
 		}
 	}
-	__except(true){
+	__except(TRUE){
 		return 0;
 	}
 }

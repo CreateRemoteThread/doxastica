@@ -1,4 +1,4 @@
-ULONG_PTR darksign_reflect(char *payload_addr, int filesize, int mode);
+ULONG_PTR darksign_reflect(ULONG_PTR payload_addr, int filesize,int mode);
 
 #ifndef DEREF_MACROS_TAG
 #define DEREF( name )*(UINT_PTR *)(name)

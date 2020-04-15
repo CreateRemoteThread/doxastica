@@ -43,7 +43,7 @@ int cs_search_vtable(lua_State *L)
 		int skipPtr = 0;
 
 		__try{
-			while(true)
+			while(TRUE)
 			{
 				UINT_PTR fPtr = (UINT_PTR )(addrFrom[0]);
 				if(fPtr >= lastAllocation && fPtr <= (lastAllocation + (UINT_PTR )lastSize - sizeof(fPtr)))
@@ -82,7 +82,7 @@ int cs_search_vtable(lua_State *L)
 				addrFrom = (UINT_PTR *)((char *)(addrFrom - 4));
 			}
 		}
-		__except(true)
+		__except(TRUE)
 		{
 			if (protectMode == 1)
 			{

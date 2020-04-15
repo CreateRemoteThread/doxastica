@@ -29,7 +29,7 @@ typedef LONG NTSTATUS;
 #define STATUS_SUCCESS              ((NTSTATUS) 0x00000000)
 #define STATUS_INFO_LENGTH_MISMATCH ((NTSTATUS) 0xC0000004)
 
-enum KWAIT_REASON
+typedef enum 
 {
     Executive,
     FreePage,
@@ -59,13 +59,7 @@ enum KWAIT_REASON
     Spare6,
     WrKernel,
     MaximumWaitReason
-};
-
-enum THREAD_STATE
-{
-    Running = 2,
-    Waiting = 5,
-};
+}KWAIT_REASON;
 
 #pragma pack(push,4)
 
@@ -77,7 +71,13 @@ struct CLIENT_ID
 };
 */
 
-struct SYSTEM_THREAD
+typedef enum
+{
+    Running = 2,
+    Waiting = 5,
+} THREAD_STATE;
+
+typedef struct
 {
     FILETIME     ftKernelTime;
     FILETIME     ftUserTime;  
@@ -91,9 +91,9 @@ struct SYSTEM_THREAD
     THREAD_STATE dThreadState;
     KWAIT_REASON WaitReason;
     DWORD        dReserved01;
-};
+} SYSTEM_THREAD;
 
-struct VM_COUNTERS // virtual memory of process
+typedef struct // virtual memory of process
 {
     DWORD PeakVirtualSize;
     DWORD VirtualSize;
@@ -106,7 +106,7 @@ struct VM_COUNTERS // virtual memory of process
     DWORD QuotaNonPagedPoolUsage;
     DWORD PagefileUsage;
     DWORD PeakPagefileUsage;
-};
+} VM_COUNTERS;
 
 struct SYSTEM_PROCESS
 {

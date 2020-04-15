@@ -1,8 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
+extern "C"
+{
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
+}
 #include <windows.h>
 #include <tlhelp32.h>
 #include <psapi.h>
@@ -15,6 +18,14 @@ int totalThreads = 0;
 int threadIdHead = 0;
 
 CRITICAL_SECTION CriticalSection;
+
+void outString_i(HANDLE hPipe, char *thisMsg)
+{
+	DWORD bytesWritten = 0;
+	WriteFile(hPipe,thisMsg,strlen(thisMsg) + 1,&bytesWritten,NULL);
+	OutputDebugString(thisMsg);
+	return;
+}
 
 // only saves 1024 locations. if you have more than 1024
 // locations writing to a given memory address, you're
@@ -63,15 +74,15 @@ int cs_fetch_dword(lua_State *L)
 			lua_pushinteger(L,value);
 			return 1;
 		}
-		__except(true)
+		__except(TRUE)
 		{
-			outString(hPipe," [ERR] cant read here, check memory protection\n");
+			outString_i(hPipe," [ERR] cant read here, check memory protection\n");
 			return 0;
 		}
 	}
 	else
 	{
-		outString(hPipe," [ERR] fetch_dword(dest) requires 1 argument\n");
+		outString_i(hPipe," [ERR] fetch_dword(dest) requires 1 argument\n");
 		return 0;
 	}
 	return 0;
@@ -92,15 +103,15 @@ int cs_fetch_word(lua_State *L)
 			lua_pushinteger(L,value);
 			return 1;
 		}
-		__except(true)
+		__except(TRUE)
 		{
-			outString(hPipe," [ERR] cant read here, check memory protection\n");
+			outString_i(hPipe," [ERR] cant read here, check memory protection\n");
 			return 0;
 		}
 	}
 	else
 	{
-		outString(hPipe," [ERR] fetch_word(dest) requires 1 argument\n");
+		outString_i(hPipe," [ERR] fetch_word(dest) requires 1 argument\n");
 		return 0;
 	}
 	return 0;
@@ -121,15 +132,15 @@ int cs_fetch_byte(lua_State *L)
 			lua_pushinteger(L,value);
 			return 1;
 		}
-		__except(true)
+		__except(TRUE)
 		{
-			outString(hPipe," [ERR] cant read here, check memory protection\n");
+			outString_i(hPipe," [ERR] cant read here, check memory protection\n");
 			return 0;
 		}
 	}
 	else
 	{
-		outString(hPipe," [ERR] db(dest) requires 1 argument\n");
+		outString_i(hPipe," [ERR] db(dest) requires 1 argument\n");
 		return 0;
 	}
 	return 0;
@@ -150,13 +161,13 @@ int cs_resumethreads(lua_State *L)
 	HANDLE hThreadSnap = CreateToolhelp32Snapshot( TH32CS_SNAPTHREAD, 0 ); 
 	if( hThreadSnap == INVALID_HANDLE_VALUE ) 
 	{
-		outString(hPipe," [ERR] createtoolhelp32snapshot failed\n");
+		outString_i(hPipe," [ERR] createtoolhelp32snapshot failed\n");
 		return 0;
 	}
 
 	if(Thread32First(hThreadSnap,&te32) == 0)
 	{
-		outString(hPipe," [ERR] thread32first returned 0, what's up?\n");
+		outString_i(hPipe," [ERR] thread32first returned 0, what's up?\n");
 		return 0;
 	}
 
@@ -196,14 +207,14 @@ int cs_stopthreads(lua_State *L)
 	HANDLE hThreadSnap = CreateToolhelp32Snapshot( TH32CS_SNAPTHREAD, 0 ); 
 	if( hThreadSnap == INVALID_HANDLE_VALUE ) 
 	{
-		outString(hPipe," [ERR] createtoolhelp32snapshot failed\n");
+		outString_i(hPipe," [ERR] createtoolhelp32snapshot failed\n");
 		return 0;
 	}
 
 	// can you deny this?
 	if(Thread32First(hThreadSnap,&te32) == 0)
 	{
-		outString(hPipe," [ERR] thread32first returned 0, what's up?\n");
+		outString_i(hPipe," [ERR] thread32first returned 0, what's up?\n");
 		return 0;
 	}
 
@@ -237,14 +248,14 @@ int cs_listthreads(lua_State *L)
 	DWORD u32_Error = i_Proc.Capture();
 	if(u32_Error)
 	{
-		outString(hPipe," [ERR] i_Proc.Capture() failed\n");
+		outString_i(hPipe," [ERR] i_Proc.Capture() failed\n");
         return 0;
 	}
 
 	SYSTEM_PROCESS *pk_Proc = i_Proc.FindProcessByPid(GetCurrentProcessId());
 	if(!pk_Proc)
 	{
-		outString(hPipe," [ERR] i_Proc.FindProcessByPid() failed\n");
+		outString_i(hPipe," [ERR] i_Proc.FindProcessByPid() failed\n");
 		return 0;
 	}
 
@@ -260,14 +271,14 @@ int cs_listthreads(lua_State *L)
 	HANDLE hThreadSnap = CreateToolhelp32Snapshot( TH32CS_SNAPTHREAD, 0 ); 
 	if( hThreadSnap == INVALID_HANDLE_VALUE ) 
 	{
-		outString(hPipe," [ERR] createtoolhelp32snapshot failed\n");
+		outString_i(hPipe," [ERR] createtoolhelp32snapshot failed\n");
 		return 0;
 	}
 
 	// can you deny this?
 	if(Thread32First(hThreadSnap,&te32) == 0)
 	{
-		outString(hPipe," [ERR] thread32first returned 0, what's up?\n");
+		outString_i(hPipe," [ERR] thread32first returned 0, what's up?\n");
 		return 0;
 	}
 
@@ -301,7 +312,7 @@ int cs_listthreads(lua_State *L)
 				sprintf(mbuf," + %d\n",te32.th32ThreadID);
 			}
 
-			outString(hPipe,mbuf);
+			outString_i(hPipe,mbuf);
 			lua_pushinteger(L,totalThreads);
 			lua_pushinteger(L,te32.th32ThreadID);
 			lua_settable(L,-3);
@@ -395,12 +406,12 @@ int protectCore(lua_State *L,int protectMode)
 	else
 	{
 		sprintf(mbuf," [ERR] m_who_writes_to() needs an address\n");
-		outString(hPipe,mbuf);
+		outString_i(hPipe,mbuf);
 	}
 
 	if(canSetNewBreak == 0)
 	{
-		outString(hPipe," [ERR] memory breakpoint shared cooldown already in use. m_finish() first.\n");
+		outString_i(hPipe," [ERR] memory breakpoint shared cooldown already in use. m_finish() first.\n");
 		return 0;
 	}
 	canSetNewBreak = 0;
@@ -414,14 +425,14 @@ int protectCore(lua_State *L,int protectMode)
 	HANDLE hThreadSnap = CreateToolhelp32Snapshot( TH32CS_SNAPTHREAD, 0 ); 
 	if( hThreadSnap == INVALID_HANDLE_VALUE ) 
 	{
-		outString(hPipe," [ERR] m_who_writes_to: createtoolhelp32snapshot failed\n");
+		outString_i(hPipe," [ERR] m_who_writes_to: createtoolhelp32snapshot failed\n");
 		return 0;
 	}
 
 	// can you deny this?
 	if(Thread32First(hThreadSnap,&te32) == 0)
 	{
-		outString(hPipe," [ERR] m_who_writes_to: thread32first returned 0\n");
+		outString_i(hPipe," [ERR] m_who_writes_to: thread32first returned 0\n");
 		return 0;
 	}
 
@@ -469,7 +480,7 @@ int protectCore(lua_State *L,int protectMode)
 	CloseHandle(hThreadSnap);
 
 	sprintf(mbuf," [NFO] protected %d threads\n",totalThreads);
-	outString(hPipe,mbuf);
+	outString_i(hPipe,mbuf);
 
 	lua_pushinteger(L,totalThreads);
 	return 1;
@@ -499,7 +510,7 @@ int cs_m_finish_who_writes_to(lua_State *L)
 
 	if(canSetNewBreak == 1)
 	{
-		outString(hPipe," [ERR] no break in place, m_who_writes_to first\n");
+		outString_i(hPipe," [ERR] no break in place, m_who_writes_to first\n");
 		return 0;
 	}
 
@@ -517,14 +528,14 @@ int cs_m_finish_who_writes_to(lua_State *L)
 	HANDLE hThreadSnap = CreateToolhelp32Snapshot( TH32CS_SNAPTHREAD, 0 ); 
 	if( hThreadSnap == INVALID_HANDLE_VALUE ) 
 	{
-		outString(hPipe," [ERR] m_who_writes_to: createtoolhelp32snapshot failed\n");
+		outString_i(hPipe," [ERR] m_who_writes_to: createtoolhelp32snapshot failed\n");
 		return 0;
 	}
 
 	// can you deny this?
 	if(Thread32First(hThreadSnap,&te32) == 0)
 	{
-		outString(hPipe," [ERR] m_who_writes_to: thread32first returned 0\n");
+		outString_i(hPipe," [ERR] m_who_writes_to: thread32first returned 0\n");
 		return 0;
 	}
 
@@ -556,7 +567,7 @@ int cs_m_finish_who_writes_to(lua_State *L)
 
 	if(globalSolutions_isOverflow)
 	{
-		outString(hPipe," [NFO] overflow flag set = over 1024 access violations\n");
+		outString_i(hPipe," [NFO] overflow flag set = over 1024 access violations\n");
 	}
 	else
 	{
@@ -591,24 +602,24 @@ int cs_m_finish_who_writes_to(lua_State *L)
 				{
 					unresolve(globalSolutions[i],mbuf_resolve);
 					sprintf(mbuf," + [ADDR:0x%p(%s)] [WRITECOUNT:%d] [DISASM:%s]\n",(void *)globalSolutions[i],mbuf_resolve,globalSolutions_writeCount[i],d->CompleteInstr);
-					outString(hPipe,mbuf);
+					outString_i(hPipe,mbuf);
 				}
 				else
 				{
 					break;
 				}
 			}
-			__except(true)
+			__except(TRUE)
 			{
 				sprintf(mbuf," + [ADDR:0x%p] [WRITECOUNT:%d] NO DISASSEMBLY\n",(void *)globalSolutions[i],globalSolutions_writeCount[i]);
-				outString(hPipe,mbuf);
+				outString_i(hPipe,mbuf);
 			}
 		}
 		free(d);
 	}
 
 	sprintf(mbuf," [NFO] unprotected %d threads, %d results [vehTriggered = %d]\n",totalThreads,i,vehTriggered);
-	outString(hPipe,mbuf);
+	outString_i(hPipe,mbuf);
 
 	return 1;
 }
@@ -648,7 +659,7 @@ void protectSingleThread(HANDLE hThread, UINT_PTR protectLocation, int protectMo
 	}
 	else
 	{
-		// outString(hPipe," [ERR] need PROTECT_READ or PROTECT_WRITE when trying to mem break\n")
+		// outString_i(hPipe," [ERR] need PROTECT_READ or PROTECT_WRITE when trying to mem break\n")
 		return;
 	}
 	// c.Dr7 = 0xff55ffff; // 0b11111111010101011111111111111111;
@@ -794,13 +805,13 @@ int cs_dump_everything_we_can(lua_State *L)
 	if(dwAttrib != INVALID_FILE_ATTRIBUTES)
 	{
 		sprintf(mbuf," [+] '%s' already exists, not saving anything\n",savedirectory);
-		outString(hPipe,mbuf);
+		outString_i(hPipe,mbuf);
 		return 0;
 	}
 	else
 	{
 		sprintf(mbuf," [+] saving to directory '%s'\n",savedirectory);
-		outString(hPipe,mbuf);
+		outString_i(hPipe,mbuf);
 		CreateDirectory(savedirectory,NULL);
 	}
 

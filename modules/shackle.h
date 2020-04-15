@@ -22,7 +22,12 @@ DWORD WINAPI IPCServerThread( LPVOID lpParam );
 DWORD WINAPI IPCServerInstance(LPVOID lpvParam);
 void processCommand(char *pchRequest, char *pchReply);
 static int test_lua(lua_State *L);
-void outString(HANDLE hPipe, char *thisMsg);
+#ifdef __cplusplus
+extern "C" void outString(HANDLE hPipe, char *thisMsg);
+
+#else
+void outString(HANDLE hPipe, char *thisMsg);	
+#endif
 
 static int loadline (lua_State *L, HANDLE hPipe, int *exitToLoop);
 static int pushline (lua_State *L, int firstline, HANDLE hPipe, int *exitToLoop);
@@ -64,7 +69,7 @@ static int cs_asm_add(lua_State *L);
 static int cs_asm_commit(lua_State *L);
 static int cs_asm_free(lua_State *L);
 static int cs_assemble(lua_State *L);
-int validate_asm(asmBuffer *a);
+
 
 static int cs_eb(lua_State *L);
 static int cs_ew(lua_State *L);

@@ -4,6 +4,7 @@
 #include "Translator.h"
 #include "ParseTest.h"
 
+
 void XEDParseSetMode(bool X64, xed_state_t* State)
 {
     if(X64)

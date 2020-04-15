@@ -12,7 +12,6 @@ int cs_ptrscan(lua_State *L)
 	HANDLE hPipe = (HANDLE )(UINT_PTR )lua_tonumber(L,-1);
 	lua_pop(L,1);
 
-
 	return 0;
 }
 
@@ -24,7 +23,7 @@ int validatePtrResult(ptrResult *p)
 			return 1;
 		}
 	}
-	__except(true)
+	__except(TRUE)
 	{
 		return 0;
 	}

@@ -5,12 +5,36 @@
 #include <psapi.h>
 #include <tlhelp32.h>
 #include <lualib.h>
-#include "shackle.h"
+// #include "shackle.h"
 #include "darksign.h"
 #include "winnt_structs.h"
 
 #define MODE_EXE 0
 #define MODE_DLL 1
+
+char *shortName_i(char *fullName)
+{
+    if(strlen(fullName) == 0)
+    {
+        // no nice way to pass interrupt-prints to the peek client
+        // so let's have this on hold for now.
+        return NULL;
+    }
+    int i = strlen(fullName) - 1;
+    int firstToggle = 0;
+    for( ; i > 0; i--)
+    {
+        // don't accept last character is '\\'
+        if(fullName[i] == '\\' && firstToggle == 1)
+        {
+            return (char *)(fullName + i + 1);
+        }
+        firstToggle = 1;
+    }
+
+    return (char *)(fullName + i);
+}
+
 
 ULONG_PTR darksign_reflect(ULONG_PTR payload_addr, int filesize,int mode)
 {
@@ -384,7 +408,7 @@ void self_hollow(HANDLE hPipe)
 
 	EnumProcessModules( GetCurrentProcess(), hMods, sizeof(hMods),&cbNeeded);
 	
-	UINT_PTR lpBase = NULL;
+	UINT_PTR lpBase = (UINT_PTR )NULL;
 
 	int i = 0;
 	for (; i < (cbNeeded / sizeof(HMODULE)); i++)
@@ -392,7 +416,7 @@ void self_hollow(HANDLE hPipe)
 		char szModName[1024];
 		if(GetModuleFileNameEx( hProcess,hMods[i],szModName,sizeof(szModName) / sizeof(char)) )
 		{
-			if(strstr(shortName(szModName),"exe") != NULL)
+			if(strstr(shortName_i(szModName),"exe") != NULL)
 			{
 				GetModuleInformation(hProcess,hMods[i],&modInfo,sizeof(modInfo));
 				lpBase = (UINT_PTR )modInfo.lpBaseOfDll;
