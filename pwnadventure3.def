@@ -6,3 +6,5 @@ EXPORTS DllMain
 EXPORTS test0
 EXPORTS test2
 EXPORTS proxySend
+EXPORTS getSaveAddr
+EXPORTS lockLocation

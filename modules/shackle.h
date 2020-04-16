@@ -10,7 +10,8 @@ static int cs_memread(lua_State *L);
 static int cs_disassemble(lua_State *L);
 static int cs_free(lua_State *L);
 static int cs_asm_free(lua_State *L);
- // static int cs_catchthis(lua_State *L);
+static int cs_catchthis(lua_State *L);
+static int cs_deref(lua_State *L);
 int readfilter(unsigned int code, struct _EXCEPTION_POINTERS *ep);
 
 static int cs_hook(lua_State *L);

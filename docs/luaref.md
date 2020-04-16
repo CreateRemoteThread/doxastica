@@ -156,4 +156,8 @@ such as labels. sorry =(
   pass any number of arbitrary arguments
   
 - catchthis(func_addr,save_loc) can steal the "this" pointer out of a C++ function call
-  by crafting a fast code cave (jmp->mov loc,ecx->jmp).
+  by crafting a thread-safe code cave (jmp->mov loc,ecx->push/ret). the original use case
+  was to provide a "this" pointer to a patch dll, so pass this over.
+  
+- deref(data_addr) can derefernce a UINT_PTR, returning the data at data_addr. this does
+  exception handle...

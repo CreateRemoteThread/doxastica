@@ -76,10 +76,6 @@ int main(int argc, char **argv)
 				{
 					continue;
 				}
-				if(staticbuf[0] == 0x6d)
-				{
-					continue;
-				}
 				if(cbuf.type == TYPE_SEND)
 				{
 					printf(" ---------------- SEND ---------------- \n");

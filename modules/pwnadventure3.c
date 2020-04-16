@@ -18,12 +18,20 @@ CRITICAL_SECTION packetCaptureSection = {0};
 extern "C" __declspec(dllexport) unsigned long __stdcall newSend(unsigned long socket, char *buf, unsigned long len, unsigned long flags);
 extern "C" __declspec(dllexport) unsigned long __stdcall newRecv(unsigned long socket, char *buf, unsigned long len, unsigned long flags);
 
-
 extern "C" __declspec(dllexport) unsigned long __stdcall test0();
 extern "C" __declspec(dllexport) unsigned long __stdcall test2(UINT_PTR a, UINT_PTR b);
 
 extern "C" __declspec(dllexport) unsigned long __stdcall proxySend(unsigned long *buf, unsigned long len);
 
+extern "C" __declspec(dllexport) UINT_PTR __stdcall getSaveAddr();
+extern "C" __declspec(dllexport) void __stdcall lockLocation(int yesno);
+
+unsigned long IClientWorld = 0;
+
+extern "C" UINT_PTR __stdcall getSaveAddr()
+{
+	return (UINT_PTR )(&IClientWorld);
+}
 
 typedef DWORD (WINAPI * _send) (DWORD, char *, DWORD, DWORD);
 _send oldSend = NULL;
@@ -39,6 +47,7 @@ extern "C" unsigned long __stdcall proxySend(unsigned long *buf, unsigned long l
 		int i = oldSend(lastSock, (char *)buf, len, 0);
 		return i;
 	}
+	return 0;
 }
 
 extern "C" unsigned long __stdcall test0()
@@ -63,8 +72,6 @@ extern "C" unsigned long __stdcall test2(UINT_PTR a, UINT_PTR b)
 	return 0;
 }
 
-
-
 HANDLE hPipe;
 
 struct cmdbuf
@@ -78,24 +85,37 @@ DWORD bytesWritten;
 
 unsigned long reuse_socket = 0;
 
+int lockZ = 0;
+typedef struct{
+	float x;
+	float y;
+	float z;
+}Vector3;
+
+Vector3 playerloc;
+
+extern "C" void __stdcall lockLocation(int yesno)
+{
+	lockZ = yesno;
+	return;
+}
+
 // doesn't give me the same calling convention =)
 extern "C" unsigned long __stdcall newSend(unsigned long socket, char *buf, unsigned long len, unsigned long flags)
 {
+	
 	if(buf[0] == 0x2a)
 	{
 		lastSock = socket;
 	}
-	if(len > 5)
+	if(buf[0] == 0x6d && buf[1] == 0x76)
 	{
-		/*
-		if(buf[0] == 0x24 && buf[1] == 0x62)
+		// 6d 76 d8 59 40 c6 57 cb 0c 47 b5 b2 b6 44 65 0e d4 ed 00 00 00 00
+		// xx xx 11 11 11 11 22 22 22 22 33 33 33 33 44 44 44 44
+		if(lockZ != 0)
 		{
-			buf[18] = 0xFF;
-			buf[19] = 0xFF;
-			buf[20] = 0xFF;
-			buf[21] = 0xFF;
+			buf[12] += a5;
 		}
-		*/
 	}
 	int i = oldSend(socket, buf, len, flags);
 	if(reuse_socket == 0)
@@ -146,6 +166,18 @@ extern "C" void __stdcall callback(ULONG_PTR addr)
 	return;
 }
 
+extern "C" void __stdcall patchIPlayerObject()
+{
+	if(IClientWorld == 0)
+	{
+		return;
+	}
+	else
+	{
+	}
+	return;
+}
+
 BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
 {
 	if(fdwReason == DLL_PROCESS_ATTACH)
@@ -157,20 +189,3 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
 		return TRUE;
 	}
 }
-
-/*
-void initializeHooks()
-{
-	OutputDebugString("ok!");
-	//HANDLE cp = GetCurrentProcess();
-	//HANDLE p = GetModuleHandle("ws2_32.dll");
-	//MODULEINFO modInfo;
-	
-	packetCapture = fopen("c:\\projects\\capture.cap","wb");
-	InitializeCriticalSection(&packetCaptureSection);
-	// GetModuleInformation(cp,(HMODULE )p,&modInfo,sizeof(modInfo));
-	hook((UINT_PTR )GetProcAddress(LoadLibrary("ws2_32.dll"),"send"),(UINT_PTR ) newSend, (UINT_PTR
-	*)&oldSend);
-	hook((UINT_PTR )GetProcAddress(LoadLibrary("ws2_32.dll"),"recv"),(UINT_PTR ) newRecv, (UINT_PTR *)&oldRecv);
-}
-*/

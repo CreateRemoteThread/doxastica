@@ -822,6 +822,108 @@ static int loadline (lua_State *L, HANDLE hPipe, int *exitToLoop) {
   return status;
 }
 
+int filter(unsigned int code, struct _EXCEPTION_POINTERS *ep)
+{
+    puts("in filter.");
+    if (code == EXCEPTION_ACCESS_VIOLATION)
+    {
+        puts("caught AV as expected.");
+        return EXCEPTION_EXECUTE_HANDLER;
+    }
+    else
+    {
+        puts("didn't catch AV, unexpected.");
+        return EXCEPTION_CONTINUE_SEARCH;
+    };
+}
+
+static int cs_deref(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(UINT_PTR )lua_tointeger(L,-1);
+	lua_pop(L,1);
+	
+	if(lua_gettop(L) == 1)
+	{
+		__try{
+			UINT_PTR *data_addr = (UINT_PTR *)lua_tointeger(L,1);
+			lua_pushinteger(L,data_addr[0]);
+			return 1;
+		}
+		__except(filter(GetExceptionCode(), GetExceptionInformation())){
+			outString(hPipe," [ERR] deref failed\n");
+			return 0;
+		}
+	}
+	else
+	{
+		outString(hPipe," [ERR] deref(data_addr) takes 1 argument\n");
+		return 0;
+	}
+}
+
+// grabs the "this" pointer out of a jump.
+static int cs_catchthis(lua_State *L)
+{
+	lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(UINT_PTR )lua_tointeger(L,-1);
+	lua_pop(L,1);
+	
+	#ifdef ARCHI_64
+	outString(hPipe," [ERR] catchthis not supported in 64-bit architecture (yet!)\n");
+	return 0;
+	#endif
+	
+	char mbuf[256];
+
+	if(lua_gettop(L) == 2)
+	{
+		if(lua_isinteger(L,1) && lua_isinteger(L,2))
+		{
+			UINT_PTR call_addr = (UINT_PTR )lua_tointeger(L,1);
+			UINT_PTR save_addr = (UINT_PTR )lua_tointeger(L,2);
+			char *codeCave = (char *)VirtualAlloc(NULL,12,MEM_COMMIT | MEM_RESERVE,PAGE_READWRITE);
+			sprintf(mbuf," [NFO] 12 bytes code cave allocated at %p\n",(void *)codeCave);
+			if(codeCave == NULL)
+			{
+				sprintf(mbuf," [ERR] VirtualAlloc failed\n");
+				outString(hPipe,mbuf);
+				return 0;
+			}
+			UINT_PTR old_prelude = 0;
+			hook(call_addr,(UINT_PTR )codeCave,&old_prelude);
+			int writeHead = 0;
+			// 89 0D 00 10 40 00  
+			codeCave[writeHead++] = '\x89';
+			codeCave[writeHead++] = '\x0D';
+			((UINT_PTR *)((UINT_PTR )codeCave + writeHead))[0] = save_addr;
+			writeHead += 4;
+			codeCave[writeHead++] = '\x68';
+			((UINT_PTR *)((UINT_PTR )codeCave + writeHead))[0] = old_prelude;
+			writeHead += 4;
+			codeCave[writeHead++] = '\xC3';
+			sprintf(mbuf," [NFO] VirtualProtect to PAGE_EXECUTE_READ\n");
+			outString(hPipe,mbuf);
+			DWORD discard;
+			VirtualProtect((LPVOID )codeCave,12,PAGE_EXECUTE_READ,&discard);
+			return 0;
+			// outString(hPipe,mbuf);
+		}
+		else
+		{
+			outString(hPipe," [ERR] catchthis(func_ptr,save_loc) needs 2 integer arguments\n");
+			return 0;
+		}
+	}
+	else
+	{
+		outString(hPipe," [ERR] catchthis(func_ptr,save_loc) needs 2 integer arguments\n");
+		return 0;
+	}
+	
+	return 0;
+}
+
 typedef UINT_PTR (WINAPI * _call_noargs) ();
 
 static int cs_call(lua_State *L)
@@ -878,6 +980,7 @@ static int cs_call(lua_State *L)
 		{
 			sprintf(mbuf," [CALL] VirtualAlloc of %d bytes failed\n",allocateSpace);
 			outString(hPipe,mbuf);
+			return 0;
 		}
 		int writeHead = 0;
 		codeCave[writeHead++] = '\x90';
@@ -1353,7 +1456,8 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	lua_register(luaState,"dw",cs_dw);
 	lua_register(luaState,"dd",cs_dd);
 	lua_register(luaState,"hook",cs_hook);
-	// lua_register(luaState,"catchthis",cs_catchthis);
+	lua_register(luaState,"catchthis",cs_catchthis);
+	lua_register(luaState,"deref",cs_deref);
 	lua_register(luaState,"call",cs_call);
 	lua_register(luaState,"loadlibrary",cs_loadlibrary);
 	lua_register(luaState,"magicmirror",cs_magicmirror);
