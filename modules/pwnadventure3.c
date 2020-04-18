@@ -28,6 +28,8 @@ extern "C" __declspec(dllexport) void __stdcall lockLocation(int yesno);
 
 unsigned long IClientWorld = 0;
 
+#define FLAG_BEARS 1
+
 extern "C" UINT_PTR __stdcall getSaveAddr()
 {
 	return (UINT_PTR )(&IClientWorld);
@@ -114,7 +116,8 @@ extern "C" unsigned long __stdcall newSend(unsigned long socket, char *buf, unsi
 		// xx xx 11 11 11 11 22 22 22 22 33 33 33 33 44 44 44 44
 		if(lockZ != 0)
 		{
-			buf[12] += a5;
+			// buf[12] += 48;
+			buf[12] = 1;
 		}
 	}
 	int i = oldSend(socket, buf, len, flags);
@@ -135,20 +138,212 @@ extern "C" unsigned long __stdcall newSend(unsigned long socket, char *buf, unsi
 	return i;
 }
 
+#define RECV_MK 0x6d6b
+#define RECV_PS 0x7073
+
+unsigned long RECV_STATE = 0;
+unsigned long RECV_CTR = 0;
+
 extern "C" unsigned long __stdcall newRecv(unsigned long socket, char *buf, unsigned long len, unsigned long flags)
 {
-	int i = oldRecv(socket, buf, len, flags);
+	int i = oldRecv(socket,buf,len,flags);
+
+	#ifndef FLAG_BEARS
+	if(RECV_STATE == 0)
+	{
+		if(i == 2)
+		{
+			if(buf[0] == 'm' && buf[1] == 'k')
+			{
+				RECV_STATE = RECV_MK; // spawn items
+				RECV_CTR = 9;
+				OutputDebugString("RECV_MK\n");
+			}
+			else if(buf[0] == 'p' && buf[1] == 's')
+			{
+				RECV_STATE = RECV_PS; // position chang
+				RECV_CTR = 4;
+				OutputDebugString("RECV_PS\n");
+			}
+		}
+	}
+	else if(RECV_STATE == RECV_MK)
+	{
+		if(RECV_CTR == 5)
+		{
+			if(i != 4 && i != 9)
+			{
+				RECV_STATE = 0;
+				RECV_CTR = 0;
+				OutputDebugString("Not a bear, any bear... (RECV_MK, RECV_CTR 5, packet size)\n");
+			}
+			
+			if(i == 4)
+			{
+				if(buf[0] == 'B' && buf[1] == 'e' && buf[2] == 'a' && buf[3] == 'r')
+				{
+					RECV_CTR -= 1;
+				}
+				else
+				{
+					
+					RECV_STATE = 0;
+					RECV_CTR = 0;
+					OutputDebugString("Not a Bear (RECV_MK, RECV_CTR 5, data)\n");
+				}
+			}
+			else if(i == 9)
+			{
+				if(memcmp("AngryBear",buf,9) == 0)
+				{
+					RECV_CTR -= 1;
+				}
+				else
+				{
+					RECV_STATE = 0;
+					RECV_CTR = 0;
+					OutputDebugString("Not an AngryBear (RECV_MK, RECV_CTR 5, data)\n");
+				}
+			}
+			
+		}
+		else if(RECV_CTR == 4 || RECV_CTR == 3 || RECV_CTR == 2)
+		{
+			if(i == 4)
+			{
+				buf[0] = '\xFF';
+				buf[1] = '\xFF';
+				buf[2] = '\xFF';
+				buf[3] = '\xFF';
+				OutputDebugString("patching spawn loc\n");
+				RECV_CTR -= 1;
+			}
+			else
+			{
+				RECV_CTR = 0;
+			}
+		}
+		else
+		{
+			RECV_CTR -= 1;
+		}
+	}
+	else if(RECV_STATE == RECV_PS)
+	{
+		if(RECV_CTR == 3 || RECV_CTR == 2 || RECV_CTR == 1)
+		{
+			if(i == 4)
+			{
+				buf[0] = '\x00';
+				buf[1] = '\x00';
+				buf[2] = '\x00';
+				buf[3] = '\x00';
+				OutputDebugString("patching move loc\n");
+				RECV_CTR -= 1;
+			}
+			else
+			{
+				RECV_CTR = 0;
+			}
+			// RECV_CTR -= 1;
+		}
+		else
+		{
+			RECV_CTR -= 1;
+			
+		}
+	}
+	
+	if(RECV_CTR == 0)
+	{
+		RECV_STATE = 0;
+	}
+	#endif
+	
+	finito:;
 	EnterCriticalSection(&packetCaptureSection);
-	/*
-	fwrite(&len,1,sizeof(unsigned long ),packetCapture);
-	fwrite(buf,1,len,packetCapture);
-	*/
 	crit_cmdbuf.type = 3333;
 	crit_cmdbuf.size = len;
 	WriteFile(hPipe,&crit_cmdbuf,sizeof(cmdbuf),&bytesWritten,NULL);
 	WriteFile(hPipe,buf,len,&bytesWritten,NULL);
 	LeaveCriticalSection(&packetCaptureSection);
-	return i;
+	return len;
+}
+
+unsigned long lastSocket;
+int readHead;
+int packetSize;
+char iobuf[50240];
+
+extern "C" unsigned long __stdcall BACKUP_newRecv(unsigned long socket, char *buf, unsigned long len, unsigned long flags)
+{
+	if(lastSocket == 0)
+	{
+		lastSocket = socket;
+	}
+	if(lastSocket != socket)
+	{
+		if(readHead != packetSize)
+		{
+			OutputDebugString("orphan packet...\n");
+			__asm{
+				int 3
+			}
+		}
+		else
+		{
+			lastSocket = socket;
+		}
+	}
+	
+	int i = 0;
+	if(packetSize == readHead)
+	{
+		packetSize = oldRecv(socket,iobuf,50240,flags);
+			
+		readHead = 0;
+		EnterCriticalSection(&packetCaptureSection);
+		crit_cmdbuf.type = 3333;
+		crit_cmdbuf.size = packetSize;
+		WriteFile(hPipe,&crit_cmdbuf,sizeof(cmdbuf),&bytesWritten,NULL);
+		WriteFile(hPipe,iobuf,packetSize,&bytesWritten,NULL);
+		LeaveCriticalSection(&packetCaptureSection);
+		
+		if(packetSize <= len)
+		{
+			packetSize = 0;
+			memcpy(buf,iobuf,packetSize);
+			return packetSize;
+		}
+		else
+		{	
+			memcpy(buf,iobuf,len);
+			readHead = len;
+			return len;
+		}
+	}
+	else
+	{
+		if(readHead + len <= packetSize)
+		{
+			for(i = 0;i < len;i++)
+			{
+				buf[i] = iobuf[readHead++];
+			}
+			return len;
+		}
+		else
+		{
+			for(i = 0;readHead + i < packetSize;i++)
+			{
+				buf[i] = iobuf[readHead++];
+			}
+			return i;
+		}
+	}
+	
+	
+	return len;
 }
 
 

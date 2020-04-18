@@ -440,6 +440,13 @@ void injectIntoProcess(int processId, char *dllInput)
 	{
 		printf("\n\n - to connect to this process, use peek %d - \n\n", globalPid);
 	}
+	if(opFlags == OPM_FLAGS_PEEK)
+	{
+		char cmdbuf[50];
+		printf(" .. launching peek ..\n");
+		sprintf(cmdbuf,"peek %d",globalPid);
+		system(cmdbuf);
+	}
 
 	return;
 }

@@ -155,9 +155,18 @@ such as labels. sorry =(
 - call(func_addr,args...) can call any arbitrary address as if it were a function, and
   pass any number of arbitrary arguments
   
+- thiscall(func_addr,this_ptr,args...) can call any arbitrary address as if it were a
+  function, and pass any number of arbitrary arguments. this_ptr is put in ecx.
+  
 - catchthis(func_addr,save_loc) can steal the "this" pointer out of a C++ function call
   by crafting a thread-safe code cave (jmp->mov loc,ecx->push/ret). the original use case
   was to provide a "this" pointer to a patch dll, so pass this over.
   
 - deref(data_addr) can derefernce a UINT_PTR, returning the data at data_addr. this does
   exception handle...
+  
+- fromVector3(string) can parse out a string to 3 lua numbers, representing xyz of a
+  Vector3 object.
+  
+- toVector3(x,y,z) can ceate a length 12 string representing a Vector3 object (it returns
+  the pointer so you can pass it to things that need a Vector3
