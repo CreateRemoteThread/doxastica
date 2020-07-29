@@ -56,7 +56,10 @@ int cs_ls_bind(lua_State *L)
       
       listen(serverListen , 3);
       
-      outString(hPipe," [NFO] bind(lport) in listen state...\n");
+      char mbuf[1024];
+      sprintf(mbuf," [NFO] bind(%d) in listen state...\n",lport);
+      
+      outString(hPipe,mbuf);
       
       // int size_sin_serverClient = sizeof(struct sockaddr_in);
       // serverClient = accept(serverListen , (struct sockaddr *)&sin_serverClient, &size_sin_serverClient);
@@ -93,6 +96,7 @@ int cs_ls_accept(lua_State *L)
       int size_sin_serverClient = sizeof(struct sockaddr_in);
       SOCKET serverClient = serverClient = accept(serverListen , (struct sockaddr *)&sin_serverClient, &size_sin_serverClient);
       
+      /*
       TIMEVAL 			timeout;
 	
 			timeout.tv_sec = 0;
@@ -100,13 +104,15 @@ int cs_ls_accept(lua_State *L)
 			timeout.tv_usec = 250000;
 			
 			int sock_mode = 1;
+      
 			if (ioctlsocket(serverClient, FIONBIO, &sock_mode) != 0) {
 				outString(hPipe," [ERR] accept(lport) ioctlsocket set nonblocking failed\n");
 				return 0;
 			}
+      */
       
       // send();
-      send(serverClient,"test",4,0);
+      // send(serverClient,"test",4,0);
       outString(hPipe," [NFO] accept(lport) accepted!\n");
       lua_pushinteger(L,(int )serverClient);
       return 1;
@@ -278,7 +284,8 @@ int cs_ls_recv(lua_State *L)
 			if(retval == SOCKET_ERROR)
 			{
 				outString(hPipe," [ERR] recv(sock,data) something went wrong, SOCKET_ERROR\n");
-				return 0;
+        lua_pushinteger(L,-1);
+				return 1;
 			}
 			else
 			{
@@ -312,8 +319,16 @@ int cs_ls_send(lua_State *L)
 		SOCKET s = lua_tointeger(L,1);
 		databuf = (char *)(lua_tolstring(L,2,&msize));
 		int x = send(s,databuf,msize,0);
-		lua_pushinteger(L,(int )x);
-		return 1;
+    if(x == SOCKET_ERROR)
+    {
+      lua_pushinteger(L,-1);
+			return 1;
+    }
+    else
+    {
+      lua_pushinteger(L,(int )x);
+      return 1;
+    }
 	}
 	
 	}
