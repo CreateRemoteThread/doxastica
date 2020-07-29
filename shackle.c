@@ -625,8 +625,6 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
 
 		OutputDebugString(" - creating server thread\n");
 		
-		// initializeHooks();
-		
 		HANDLE hThread = CreateThread(NULL,0,IPCServerThread,NULL,0,&threadId);
 		return TRUE;
       }
@@ -973,12 +971,12 @@ static int cs_call(lua_State *L)
 		  DWORD  flProtect
 		);
 		*/
-		sprintf(mbuf," [CALL] allocating %d bytes for spelunking\n",allocateSpace);
+		sprintf(mbuf," [CALL] allocating %d bytes for spelunking\n",(int )allocateSpace);
 		outString(hPipe,mbuf);
 		char *codeCave = (char *)VirtualAlloc(NULL,allocateSpace,MEM_COMMIT | MEM_RESERVE,PAGE_READWRITE);
 		if(codeCave == NULL)
 		{
-			sprintf(mbuf," [CALL] VirtualAlloc of %d bytes failed\n",allocateSpace);
+			sprintf(mbuf," [CALL] VirtualAlloc of %d bytes failed\n",(int )allocateSpace);
 			outString(hPipe,mbuf);
 			return 0;
 		}
@@ -1079,12 +1077,12 @@ static int cs_thiscall(lua_State *L)
 		  DWORD  flProtect
 		);
 		*/
-		sprintf(mbuf," [CALL] allocating %d bytes for spelunking\n",allocateSpace);
+		sprintf(mbuf," [CALL] allocating %d bytes for spelunking\n",(int )allocateSpace);
 		outString(hPipe,mbuf);
 		char *codeCave = (char *)VirtualAlloc(NULL,allocateSpace,MEM_COMMIT | MEM_RESERVE,PAGE_READWRITE);
 		if(codeCave == NULL)
 		{
-			sprintf(mbuf," [CALL] VirtualAlloc of %d bytes failed\n",allocateSpace);
+			sprintf(mbuf," [CALL] VirtualAlloc of %d bytes failed\n",(int )allocateSpace);
 			outString(hPipe,mbuf);
 			return 0;
 		}
@@ -1561,6 +1559,8 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	lua_register(luaState,"dump_all",cs_dump_everything_we_can);
 	lua_register(luaState,"dump_module",cs_dump_module);
 	lua_register(luaState,"ls_connect",cs_ls_connect);
+  lua_register(luaState,"ls_bind",cs_ls_bind);
+  lua_register(luaState,"ls_accept",cs_ls_accept);
 	lua_register(luaState,"ls_closesocket",cs_ls_closesocket);
 	lua_register(luaState,"ls_send",cs_ls_send);
 	lua_register(luaState,"ls_recv",cs_ls_recv);

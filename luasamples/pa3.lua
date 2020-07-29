@@ -36,7 +36,7 @@ iclientworld = deref(iclientworld_ptr)
 iplayer = deref(iclientworld + 0x2c)
 player_base = iplayer - 0x70 -- from windbg dt GameLogic!Player
 ed(player_base + 0x190,0xFFFF0000)
-ed(player_base + 0x194,0x8FFF0000)
+-- ed(player_base + 0x194,0x8FFF0000) 
 end
 
 ll_ptr = resolve("pwnadventure3.dll!lockLocation")

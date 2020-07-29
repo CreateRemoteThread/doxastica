@@ -1,5 +1,7 @@
 docs/*.docx
 
+utils/certexporter*
+
 **/*.obj
 
 *.idb

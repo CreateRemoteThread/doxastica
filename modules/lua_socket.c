@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <winsock2.h>
 #include <stdlib.h>
 #include <windows.h>
 #include <lua.h>
@@ -7,9 +8,117 @@
 #include "lua_socket.h"
 #include "shackle.h"
 
+#define WIN32_LEAN_AND_MEAN
+
 WSADATA wsaData;
 int wsaret = 0;
 int wsaStartupDone = 0;
+
+int cs_ls_bind(lua_State *L)
+{
+  lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(UINT_PTR )lua_tointeger(L,-1);
+	lua_pop(L,1);
+  if (lua_gettop(L) == 1)
+  {
+    if(lua_isnumber(L,1))
+		{
+      int result = 0;
+      int lport = (int )lua_tointeger(L,1);
+			struct sockaddr_in server;
+			unsigned int addr;
+			struct hostent *hp;
+			fd_set 				write_set, err_set;
+			unsigned long 		sock_mode;
+			if(wsaStartupDone == 0)
+			{
+			wsaret = WSAStartup(0x202,&wsaData);
+			if(wsaret != 0)
+			{
+				outString(hPipe," [ERR] bind(lport) something went wrong in WSAStartup\n");
+				return 0;
+			}
+			wsaStartupDone = 1;
+			}
+      
+      SOCKET serverListen = INVALID_SOCKET;
+      // SOCKET serverClient = INVALID_SOCKET;
+      
+      struct sockaddr_in sin_serverListen;
+      
+      serverListen = socket(AF_INET , SOCK_STREAM , 0 );
+      
+      sin_serverListen.sin_family = AF_INET;
+      sin_serverListen.sin_addr.s_addr = INADDR_ANY;
+      sin_serverListen.sin_port = htons( lport );
+      
+      bind(serverListen ,(struct sockaddr *)&sin_serverListen, sizeof(sin_serverListen));
+      
+      listen(serverListen , 3);
+      
+      outString(hPipe," [NFO] bind(lport) in listen state...\n");
+      
+      // int size_sin_serverClient = sizeof(struct sockaddr_in);
+      // serverClient = accept(serverListen , (struct sockaddr *)&sin_serverClient, &size_sin_serverClient);
+      
+      lua_pushinteger(L,(int )serverListen);
+      return 1;
+    }
+    else{
+      outString(hPipe," [ERR] bind(lport) lport must be a number\n");
+      return 0;
+    }
+  }
+  else
+  {
+    outString(hPipe," [ERR] bind(lport) requires one argument\n");
+		return 0;
+  }
+}
+
+// you need to pass it a function? lua_docall?
+int cs_ls_accept(lua_State *L)
+{
+  lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(UINT_PTR )lua_tointeger(L,-1);
+	lua_pop(L,1);
+
+	if (lua_gettop(L) == 1)
+	{
+		if(lua_isnumber(L,1))
+		{
+      SOCKET serverListen = (SOCKET )lua_tointeger(L,1);
+      struct sockaddr_in sin_serverClient;
+      
+      int size_sin_serverClient = sizeof(struct sockaddr_in);
+      SOCKET serverClient = serverClient = accept(serverListen , (struct sockaddr *)&sin_serverClient, &size_sin_serverClient);
+      
+      TIMEVAL 			timeout;
+	
+			timeout.tv_sec = 0;
+      // control the timeout value??
+			timeout.tv_usec = 250000;
+			
+			int sock_mode = 1;
+			if (ioctlsocket(serverClient, FIONBIO, &sock_mode) != 0) {
+				outString(hPipe," [ERR] accept(lport) ioctlsocket set nonblocking failed\n");
+				return 0;
+			}
+      
+      // send();
+      send(serverClient,"test",4,0);
+      outString(hPipe," [NFO] accept(lport) accepted!\n");
+      lua_pushinteger(L,(int )serverClient);
+      return 1;
+		}
+	}
+	else
+	{
+		outString(hPipe," [ERR] accept(lport) needs 1 argument\n");
+		return 0;
+	}
+	return 0;
+}
 
 int cs_ls_connect(lua_State *L)
 {
@@ -71,6 +180,7 @@ int cs_ls_connect(lua_State *L)
 			TIMEVAL 			timeout;
 	
 			timeout.tv_sec = 0;
+      // control the timeout value??
 			timeout.tv_usec = 250000;
 			
 			sock_mode = 1;
