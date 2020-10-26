@@ -148,6 +148,8 @@ such as labels. sorry =(
 - void ls_send(sock,data);
 - size ls_recv(sock,size);
 
+- void ls_bind2conn (bindport,connhost,connport)
+
 ### handy lua stuff
 
 - dofile(filename) can load and execute a (lua) file
