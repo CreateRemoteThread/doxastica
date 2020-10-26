@@ -1584,6 +1584,8 @@ DWORD WINAPI IPCServerInstance(LPVOID lpvParam)
 	lua_register(luaState,"bind",cs_bind);
 	lua_register(luaState,"unbind",cs_unbind);
   lua_register(luaState,"ls_bind2conn",cs_ls_bind2conn);
+  lua_register(luaState,"ls_bind2bind",cs_ls_bind2bind);
+  lua_register(luaState,"ls_conn2conn",cs_ls_conn2conn);
 	// **DEPRECATED:m_who_writes_to** lua_register(luaState,"who_writes_to",cs_who_writes_to);
 	// **DEPRECATED:m_finish_who_writes_to** lua_register(luaState,"finish_who_writes_to",cs_finish_who_writes_to);
 	lua_register(luaState,"run",cs_run);

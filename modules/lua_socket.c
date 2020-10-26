@@ -27,6 +27,79 @@ WSADATA wsaData;
 int wsaret = 0;
 int wsaStartupDone = 0;
 
+int cs_ls_conn2conn(lua_State *L)
+{
+  lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(UINT_PTR )lua_tointeger(L,-1);
+	lua_pop(L,1);
+  if (lua_gettop(L) == 4)
+	{
+    if(!(lua_isnumber(L,2) && lua_isnumber(L,4) && lua_isstring(L,1) && lua_isstring(L,3)))
+    {
+      outString(hPipe," [ERR] ls_bind2bind requires str,int,str,int\n");
+			return 0;
+    }
+    
+    char *connect1Host = (char *)lua_tostring(L,1);
+    int connect1Port = lua_tointeger(L,2);
+    char *connect2Host = (char *)lua_tostring(L,3);
+    int connect2Port = lua_tointeger(L,4);
+    if(wsaStartupDone == 0)
+		{
+			wsaret = WSAStartup(0x202,&wsaData);
+			if(wsaret != 0)
+			{
+				outString(hPipe," [ERR] bind2bind something went wrong in WSAStartup\n");
+				return 0;
+			}
+			wsaStartupDone = 1;
+		}
+
+    outString(hPipe," ls_conn2conn preparing...\n");
+    conn2conn(connect1Host,connect1Port,connect2Host,connect2Port);
+    outString(hPipe," ls_conn2conn thread alive, returning control...\n");
+		
+  }
+  return 0;
+}
+
+
+int cs_ls_bind2bind(lua_State *L)
+{
+  lua_getglobal(L,"__hpipe");
+	HANDLE hPipe = (HANDLE )(UINT_PTR )lua_tointeger(L,-1);
+	lua_pop(L,1);
+  if (lua_gettop(L) == 2)
+	{
+    // tunneling inbound
+    if(!(lua_isnumber(L,1) && lua_isnumber(L,2)))
+    {
+      outString(hPipe," [ERR] ls_bind2bind requires int,int\n");
+			return 0;
+    }
+    
+    int listenPort = lua_tointeger(L,1);
+    int connectPort = lua_tointeger(L,2);
+    if(wsaStartupDone == 0)
+		{
+			wsaret = WSAStartup(0x202,&wsaData);
+			if(wsaret != 0)
+			{
+				outString(hPipe," [ERR] bind2bind something went wrong in WSAStartup\n");
+				return 0;
+			}
+			wsaStartupDone = 1;
+		}
+
+    outString(hPipe," ls_bind2bind preparing...\n");
+    bind2bind(listenPort,connectPort);
+    outString(hPipe," ls_bind2bind thread alive, returning control...\n");
+		
+  }
+  return 0;
+}
+
+
 int cs_ls_bind2conn(lua_State *L)
 {
   // inbound tunnelling.
@@ -38,7 +111,7 @@ int cs_ls_bind2conn(lua_State *L)
     // tunneling inbound
     if(!(lua_isstring(L,2) && lua_isnumber(L,1) && lua_isnumber(L,3)))
     {
-      outString(hPipe," [ERR] tunnel_inbound not working\n");
+      outString(hPipe," [ERR] ls_bind2conn requires int, str, int\n");
 			return 0;
     }
     
@@ -50,15 +123,15 @@ int cs_ls_bind2conn(lua_State *L)
 			wsaret = WSAStartup(0x202,&wsaData);
 			if(wsaret != 0)
 			{
-				outString(hPipe," [ERR] bind(lport) something went wrong in WSAStartup\n");
+				outString(hPipe," [ERR] bind2conn something went wrong in WSAStartup\n");
 				return 0;
 			}
 			wsaStartupDone = 1;
 		}
 
-    outString(hPipe," ls_tunnel_inbound() preparing...\n");
+    outString(hPipe," ls_bind2conn preparing...\n");
     bind2conn(listenPort,connectHost,connectPort);
-    outString(hPipe," ls_connect thread alive, returning control...\n");
+    outString(hPipe," ls_bind2conn alive, returning control...\n");
 		
   }
   return 0;
