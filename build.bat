@@ -41,7 +41,7 @@ IF [%1]==[shackle64] cl /I modules /D ARCHI_64 /D WIN_X64 /Zi /c /I beainclude /
 IF [%1]==[shackle64] cl /I modules /D ARCHI_64 /Zi /c /I lua53 /I beainclude /EHsc /Fomodules/shackle64.obj /Tp shackle.c
 IF [%1]==[shackle64] cl /I modules /D ARCHI_64 /Zi /c /I lua53 /I beainclude /EHsc /Fomodules/darksign64.obj /Tc modules/darksign.c
 IF [%1]==[shackle64] cl /I modules /D ARCHI_64 /Zi /c /I lua53 /I beainclude /EHsc /Fomodules/gamestuff64.obj /Tc modules/gamestuff.c
-IF [%1]==[shackle64] link @utils/link64.txt
+IF [%1]==[shackle64] link @utils/link64.link
 
 IF [%1]==[shackle32] del shackle32.dll modules\shackle32.obj modules\lua_socket32.obj modules\vtable32.obj modules\ptrscan32.obj modules\search32.obj modulesspcontrol32.obj modulessmagicmirror32.obj moduless\darksign32.obj
 IF [%1]==[shackle32] cl /I modules /Zi /c /I lua53 /EHsc /Fomodules/ptrscan32.obj /Tc modules/ptrscan.c
@@ -53,7 +53,7 @@ IF [%1]==[shackle32] cl /I modules /D WIN_X86 /Zi /c /I beainclude /EHsc /I lua5
 IF [%1]==[shackle32] cl /I modules /Zi /c /I lua53 /I beainclude /EHsc /Fomodules/darksign32.obj /Tc modules/darksign.c
 IF [%1]==[shackle32] cl /I modules /Zi /c /I lua53 /I beainclude /EHsc /Fomodules/gamestuff32.obj /Tc modules/gamestuff.c
 IF [%1]==[shackle32] cl /I modules /Zi /c /I lua53 /I beainclude /EHsc /Fomodules/shackle32.obj /Tp shackle.c
-IF [%1]==[shackle32] link @utils/link32.txt
+IF [%1]==[shackle32] link @utils/link32.link
 
 IF [%1]==[bea32] cd beasrc
 IF [%1]==[bea32] cl /Zi /c /I ../beainclude /FoBeaEngine32.obj /Tc BeaEngine.c
