@@ -43,11 +43,12 @@ DWORD globalPid = 0;
 #define OPMODE_INJECT 2
 
 #define OPM_FLAGS_NONE 0
-#define OPM_FLAGS_DNR 1
-#define OPM_FLAGS_SNAKESALIVE 2
-#define OPM_FLAGS_MSCOREE 4
-#define OPM_FLAGS_WAIT 8
-#define OPM_FLAGS_PEEK 16
+#define OPM_FLAGS_DNR (1 << 0)
+#define OPM_FLAGS_SNAKESALIVE (1 << 1)
+#define OPM_FLAGS_MSCOREE (1 << 2)
+#define OPM_FLAGS_WAIT (1 << 3)
+#define OPM_FLAGS_PEEK (1 << 4)
+#define OPM_IGNORE_WOW64 (1 << 5)
 
 int globalWait = 0;
 int globalTest = 0;
@@ -147,10 +148,12 @@ void help()
 	printf(" [INFO] -listall : list all processes\n");
 	printf(" [INFO] -exe : use specified executable\n");
 	printf(" [INFO] -wdir : use specified working directory (raw)\n");
-	printf(" [INFO] -wait : wait before inesrting payload (to attach debugger)\n");
+	printf(" [INFO] --wait : wait before inesrting payload (to attach debugger)\n");
 	printf(" [INFO] --flag-dnr : do not recover (leave \\xEB\\xFE in) \n");
 	printf(" [INFO] --flag-snakesalive : special sauce shellcode mode\n");
 	printf(" [INFO] --flag-mscoree : special sauce fix .net mode\n");
+  printf(" [INFO] --ignore-wow64 : skips sanity checking that local LoadLibrary is equal to remote LoadLibrary\n");
+  
 	return;
 }
 
@@ -166,7 +169,7 @@ void parseArgs(int argc, char **argv)
 
 	for (; i < argc; i++ )
 	{
-		if (strcmp(argv[i],"-wait") == 0)
+		if (strcmp(argv[i],"--wait") == 0)
 		{
 			globalWait = 1;
 		}
@@ -182,11 +185,15 @@ void parseArgs(int argc, char **argv)
 		{
 			opFlags |= OPM_FLAGS_PEEK;
 		}
+    else if (strcmp(argv[i],"--ignore-wow64") == 0)
+    {
+      opFlags |= OPM_IGNORE_WOW64;
+    }
 		else if (strcmp(argv[i],"--flag-dnr") == 0)
 		{
 			opFlags |= OPM_FLAGS_DNR;
 		}
-		else if (strcmp(argv[i],"--flag-wait") == 0)
+		else if (strcmp(argv[i],"--wait") == 0)
 		{
 			opFlags |= OPM_FLAGS_WAIT;
 		}
@@ -716,20 +723,28 @@ int main(int argc,char **argv)
 		UINT_PTR ptrLoadLibraryA = (UINT_PTR )GetProcAddress(LoadLibrary("kernel32"),"LoadLibraryA");
 		printf(" [SNAKES] Local LoadLibraryA = %p\n",(void *)ptrLoadLibraryA);
 		
-		int llc = 0;
-		char *loadLibraryPrefix = (char *)malloc(10);
-		ReadProcessMemory(hProcess,(LPCVOID )ptrLoadLibraryA,(char *)loadLibraryPrefix,10,&bR);
-		for(llc = 0;llc < 10;llc++)
-		{
-			if(((char *)ptrLoadLibraryA)[llc]  != loadLibraryPrefix[llc])
-			{
-				printf(" [SNAKES] local loadlibary != remote loadlibrary, exiting\n");
-				exit(0);
-			}
-		}
-		free(loadLibraryPrefix);
+    // when a 32-bit application runs on 64-bit windows, it gets the syswow64 dll's. if
+    // this is the case, you can ignore it with --ignore-wow64
+    if(opFlags & OPM_IGNORE_WOW64)
+    {
+      printf(" [SNAKES] --ignore-wow64 supplied, skipping sanity check.\n");
+    }
+    else
+    {
+      int llc = 0;
+      char *loadLibraryPrefix = (char *)malloc(10);
+      ReadProcessMemory(hProcess,(LPCVOID )ptrLoadLibraryA,(char *)loadLibraryPrefix,10,&bR);
+      for(llc = 0;llc < 10;llc++)
+      {
+        if(((char *)ptrLoadLibraryA)[llc]  != loadLibraryPrefix[llc])
+        {
+          printf(" [SNAKES] local loadlibary != remote loadlibrary. try with --ignore-wow64 if it's a wow64 problem\n");
+          exit(0);
+        }
+      }
+      free(loadLibraryPrefix);
+    }
 		 
-		
 		// LPVOID remoteMemory = VirtualAllocEx(hProcess,NULL,strlen(dllInput) + 1,MEM_COMMIT + MEM_RESERVE, PAGE_READWRITE);
 		// WriteProcessMemory(hProcess,(LPVOID )remoteMemory,dllInput,strlen(dllInput) + 1,&bW);
 		
