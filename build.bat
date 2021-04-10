@@ -23,6 +23,21 @@ IF [%1]==[bins64] call build.bat shackle64
 IF [%1]==[bins64] call build.bat ldr64
 IF [%1]==[bins64] call build.bat peek
 
+IF [%1]==[capstone32] cd capstone
+IF [%1]==[capstone32] cl /DCAPSTONE_HAS_X86 /DCAPSTONE_USE_SYS_DYN_MEM /I include /c *.c
+IF [%1]==[capstone32] cl /DCAPSTONE_HAS_X86 /DCAPSTONE_USE_SYS_DYN_MEM /I include /c arch/X86/*.c
+IF [%1]==[capstone32] cd ..
+IF [%1]==[capstone32] move capstone\*.obj capstone32\
+IF [%1]==[capstone32] move capstone\arch\X86\*.obj capstone32\
+
+IF [%1]==[capstone64] cd capstone
+IF [%1]==[capstone64] cl /DCAPSTONE_HAS_X86 /DCAPSTONE_USE_SYS_DYN_MEM /I include /c *.c
+IF [%1]==[capstone64] cl /DCAPSTONE_HAS_X86 /DCAPSTONE_USE_SYS_DYN_MEM /I include /c arch/X86/*.c
+IF [%1]==[capstone64] cd ..
+IF [%1]==[capstone64] move capstone\*.obj capstone64\
+IF [%1]==[capstone64] move capstone\arch\X86\*.obj capstone64\
+
+
 IF [%1]==[ldr64] del ldr64.exe
 IF [%1]==[ldr64] cl /I modules /D ARCHI_64 /Zi /c /Foldr64.obj /Tp ldr.c
 IF [%1]==[ldr64] link /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:ldr64.exe ldr64.obj user32.lib

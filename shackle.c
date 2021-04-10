@@ -25,6 +25,7 @@ extern "C"
 #include "lua_socket.h"
 #include "magicmirror.h"
 #include "darksign.h"
+#include <capstone/capstone.h>
 }
 #include "xedparse\src\XEDParse.h"
 
