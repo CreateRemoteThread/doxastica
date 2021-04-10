@@ -37,7 +37,6 @@ IF [%1]==[capstone64] cd ..
 IF [%1]==[capstone64] move capstone\*.obj capstone64\
 IF [%1]==[capstone64] move capstone\arch\X86\*.obj capstone64\
 
-
 IF [%1]==[ldr64] del ldr64.exe
 IF [%1]==[ldr64] cl /I modules /D ARCHI_64 /Zi /c /Foldr64.obj /Tp ldr.c
 IF [%1]==[ldr64] link /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:ldr64.exe ldr64.obj user32.lib
@@ -67,7 +66,7 @@ IF [%1]==[shackle32] cl /I modules /Zi /c /I beainclude /EHsc /I lua53 /Fomodule
 IF [%1]==[shackle32] cl /I modules /D WIN_X86 /Zi /c /I beainclude /EHsc /I lua53 /Fomodules/magicmirror32.obj /Tc modules/magicmirror.c
 IF [%1]==[shackle32] cl /I modules /Zi /c /I lua53 /I beainclude /EHsc /Fomodules/darksign32.obj /Tc modules/darksign.c
 IF [%1]==[shackle32] cl /I modules /Zi /c /I lua53 /I beainclude /EHsc /Fomodules/gamestuff32.obj /Tc modules/gamestuff.c
-IF [%1]==[shackle32] cl /I modules /Zi /c /I lua53 /I beainclude /EHsc /Fomodules/shackle32.obj /Tp shackle.c
+IF [%1]==[shackle32] cl /I modules /Zi /c /I lua53 /I beainclude /EHsc /Fomodules/shackle32.obj /I capstone/include /Tp shackle.c
 IF [%1]==[shackle32] link @utils/link32.link
 
 IF [%1]==[bea32] cd beasrc

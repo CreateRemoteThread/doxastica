@@ -25,11 +25,13 @@ extern "C"
 #include "lua_socket.h"
 #include "magicmirror.h"
 #include "darksign.h"
-#include <capstone/capstone.h>
+#include "capstone/capstone.h"
 }
 #include "xedparse\src\XEDParse.h"
 
 int validate_asm(asmBuffer *a);
+
+csh capstoneHandle;
 
 extern "C" FILE _iob[];
 
@@ -392,17 +394,57 @@ void hook(UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress)
 {
 	DWORD oldProtect = 0;
 	int totalSize = 0;
+  
+  unsigned long long convertAddress = 0;
+  convertAddress = addressTo + totalSize;
+  int shortCutSize = 0;
+	shortCutSize = totalSize;
+  
+  char *mbuf = (char *)VirtualAlloc(NULL,1024,MEM_RESERVE | MEM_COMMIT,PAGE_READWRITE);
+  int i =0;
+  
+  cs_insn *insn;
+	size_t count;
+  count = cs_disasm(capstoneHandle, (const uint8_t *) addressTo, FUNCTION_PATCHLEN + 15, (uint64_t)convertAddress, 0, &insn);
+  if(count == 0)
+  {
+    sprintf(mbuf," [HOOK] wtf (count == 0)\n");
+    OutputDebugString(mbuf);
+    return;
+  }
+  for(i = 0;i < count;i++)
+  {
+    totalSize += insn[i].size;
+    if(totalSize > FUNCTION_PATCHLEN)
+    {
+      break;
+    }
+    if(shortCutSize < FUNCTION_SHORTPATCH_HACK)
+    {
+      shortCutSize = totalSize;
+    }
+  }
+  
+  if(totalSize < FUNCTION_PATCHLEN)
+  {
+    sprintf(mbuf," [HOOK] couldn't acquire enough instructions at source address (totalSize < FUNCTION_PATCHLEN)\n");
+    OutputDebugString(mbuf);
+    return;
+  }
+  
+  /*
+  
 	DISASM *d = (DISASM *)malloc(sizeof(DISASM));
-	
 	memset(d,0,sizeof(DISASM));
 	d->Archi = ARCHI;
 	d->EIP = (UIntPtr )addressFrom;
+  
 	totalSize += Disasm(d);
 
 	int shortCutSize = 0;
 	shortCutSize = totalSize;
 	
-	char *mbuf = (char *)VirtualAlloc(NULL,1024,MEM_RESERVE | MEM_COMMIT,PAGE_READWRITE);
+	
 	while(totalSize < FUNCTION_PATCHLEN)
 	{
 		d->EIP = (UIntPtr )(addressFrom + totalSize);
@@ -412,6 +454,9 @@ void hook(UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress)
 			shortCutSize = totalSize;
 		}
 	}
+  */
+  
+  
 
 	//memset(mbuf,0,1024);
 	//sprintf(mbuf," TRYING TO PATCH %x to %x, allocating total len of %d, closest cave %x (searching for cave size %d)\n", addressFrom,addressTo,totalSize, shortCaveAddr, shortCutSize);
@@ -578,7 +623,11 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
         init = 1;
 		SYSTEMTIME lt = {0};
 		char *fnameBuf[1024];
-
+    #if ARCHI == 64
+      cs_open(CS_ARCH_X86, CS_MODE_64, &capstoneHandle);
+    #else
+      cs_open(CS_ARCH_X86, CS_MODE_32, &capstoneHandle);
+    #endif
 
 		GetLocalTime(&lt);
 		/*
@@ -2394,42 +2443,39 @@ static int cs_disassemble(lua_State *L)
 	}
 	else
 	{
-		outString(hPipe," [ERR] diasm(addr,{size}) requires 1-2 arguments\n");
+		outString(hPipe," [ERR] disasm(addr,{instr_count=5}) requires 1-2 arguments\n");
 		return 0;
 	}
 
 	char mbuf[1024];        // sprintf buffer
-	char tempBuf[15];       // temp buf
-	int currentHeader = 0;
-	DISASM *d = (DISASM *)malloc(sizeof(DISASM));
-
-	memset(d,0,sizeof(DISASM));
-	d->Archi = ARCHI;
-	int len = 0;
-	
-	int i = 0;
-	for(;i < size;i++)
-	{
-		len = 1;
-		__try
-		{
-			d->EIP = (UIntPtr )(addrTo+currentHeader);
-			memcpy(tempBuf,(void *)(addrTo+currentHeader),15);
-			len = Disasm(d);
-
-			sprintf(mbuf," 0x%p : %s\n",(void *)(UIntPtr )(addrTo+currentHeader),d->CompleteInstr);
-			outString(hPipe,mbuf);
-
-		}
-		__except( readfilter(GetExceptionCode(), GetExceptionInformation()) )
-		{
-			sprintf(mbuf," 0x%p : ..\n",(void *)(UIntPtr )(addrTo+currentHeader));
-			outString(hPipe," ..\n");
-		}
-		currentHeader += len;
-	}
-
-	free(d);
+  char tempBuf[16];
+  int currentHeader = 0;
+  
+  cs_insn *insn;
+	size_t count;
+  
+  unsigned long long convertAddress = 0;
+  
+  int i = 0;
+  for(i = 0;i < size;i++)
+  {
+    convertAddress = (unsigned long )(void *)addrTo + currentHeader;
+    memcpy(tempBuf,(void *)(addrTo + currentHeader),16);
+    count = cs_disasm(capstoneHandle, (const uint8_t *) tempBuf, 15, (uint64_t)convertAddress, 0, &insn);
+    if(count == 0)
+    {
+      sprintf(mbuf," 0x%p : ???\n", (void *)(addrTo + currentHeader));
+      outString(hPipe,mbuf);
+      break;
+    }
+    else
+    {
+      sprintf(mbuf,"0x%p : %s\t\t%s\n", (void *)(addrTo + currentHeader), insn[0].mnemonic,
+            insn[0].op_str);
+      outString(hPipe,mbuf);
+      currentHeader += insn[0].size;
+    }
+  }
 
 	return 0;
 }

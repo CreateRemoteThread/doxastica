@@ -1,7 +1,7 @@
 doxastica
 =========
 
-[Lua Ref](docs/luaref.md) | [Tutorials](docs/tutorial.md) | [Development](docs/build.md) | [Special Modes](docs/tech.md)
+[Lua Ref](docs/luaref.md) | [Tutorials](docs/tutorial.md) | [Function Hooking](docs/apihooks.md) | [Development](docs/build.md) | [Special Modes](docs/tech.md)
 
 ![pew](/docs/underrail.png)
 

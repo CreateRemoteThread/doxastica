@@ -1,0 +1,4 @@
+LIBRARY testdll
+EXPORTS callback
+EXPORTS NewMsgBox
+EXPORTS DllMain
