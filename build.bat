@@ -7,11 +7,9 @@ IF NOT EXIST lua64 MKDIR lua64
 
 cd src
 
-IF [%1]==[prereqs64] call build.bat bea64
 IF [%1]==[prereqs64] call build.bat xed64
 IF [%1]==[prereqs64] call build.bat lua64
 
-IF [%1]==[prereqs32] call build.bat bea32
 IF [%1]==[prereqs32] call build.bat xed32
 IF [%1]==[prereqs32] call build.bat lua32
 
@@ -69,10 +67,6 @@ IF [%1]==[shackle32] cl /I modules /Zi /c /I lua53 /I beainclude /EHsc /Fomodule
 IF [%1]==[shackle32] cl /I modules /Zi /c /I lua53 /I beainclude /EHsc /Fomodules/shackle32.obj /I capstone/include /Tp shackle.c
 IF [%1]==[shackle32] link @utils/link32.link
 
-IF [%1]==[bea32] cd beasrc
-IF [%1]==[bea32] cl /Zi /c /I ../beainclude /FoBeaEngine32.obj /Tc BeaEngine.c
-IF [%1]==[bea32] cd ..
-
 IF [%1]==[lua32] cd lua53 
 IF [%1]==[lua32] cl /D LUA_COMPAT_5_2 /D LUA_BUILD_AS_DLL /c /EHsc /Tc *.c
 IF [%1]==[lua32] del lua.obj
@@ -86,10 +80,6 @@ IF [%1]==[lua64] del lua.obj
 IF [%1]==[lua64] del luac.obj
 IF [%1]==[lua64] cd ..
 IF [%1]==[lua64] move lua53\*.obj lua64\
-
-IF [%1]==[bea64] cd beasrc
-IF [%1]==[bea64] cl /Zi /c /I ../beainclude /FoBeaEngine64.obj /Tc BeaEngine.c
-IF [%1]==[bea64] cd ..
 
 IF [%1]==[test64] cl /Zi /c /Tc modules/test64.c
 IF [%1]==[test64] link /out:test64.exe test64.obj user32.lib
