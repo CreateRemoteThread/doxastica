@@ -13,7 +13,7 @@ int cs_fetch_word(lua_State *L);
 int cs_fetch_byte(lua_State *L);
 
 int cs_membreak(lua_State *L);
-
+void _internal_disasm(void *targetAddress, char *mbuf);
 int cs_stopthreads(lua_State *L);
 int cs_resumethreads(lua_State *L);
 

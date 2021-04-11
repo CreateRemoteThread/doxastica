@@ -11,7 +11,7 @@ extern "C"
 #include <psapi.h>
 #include "pcontrol.h"
 #include "shackle.h"
-#include "beaengine\beaengine.h"
+#include "capstone\capstone.h"
 
 DWORD globalThreadArray[1024];
 int totalThreads = 0;
@@ -501,6 +501,33 @@ int cs_m_who_accesses(lua_State *L)
 	return protectCore(L,PROTECT_READ | PROTECT_WRITE);
 }
 
+void _internal_disasm(void *targetAddress, char *mbuf)
+{
+  cs_insn *insn;
+  size_t count;
+  
+  unsigned long long convertAddress = 0 + (unsigned long )targetAddress;
+  csh capstoneHandle;
+
+  #if ARCHI == 64
+    cs_open(CS_ARCH_X86, CS_MODE_64, &capstoneHandle);
+  #else
+    cs_open(CS_ARCH_X86, CS_MODE_32, &capstoneHandle);
+  #endif
+  count = cs_disasm(capstoneHandle, (const uint8_t *)convertAddress, 15, (uint64_t)convertAddress, 0, &insn);
+  if(count == 0)
+  {
+    sprintf(mbuf," 0x%p : ???\n", (void *)(convertAddress));
+  }
+  else
+  {
+    sprintf(mbuf,"0x%p : %s\t\t%s\n", (void *)(convertAddress), insn[0].mnemonic,
+          insn[0].op_str);
+  }
+  cs_close(&capstoneHandle);
+  return;
+}
+
 // something is broken here.
 int cs_m_finish_who_writes_to(lua_State *L)
 {
@@ -574,9 +601,34 @@ int cs_m_finish_who_writes_to(lua_State *L)
 		lua_newtable(L);
 
 		int i = 0;
-
 		char mbuf[1024];        // sprintf buffer
+    
+    for(i = 0;i < 1024;i++)
+    {
+      if(globalSolutions_bytes[i] == 0)
+      {
+        break;
+      }
+      lua_pushinteger(L,i);
+			lua_pushinteger(L,globalSolutions[i]);
+			lua_settable(L,-3);
+      __try
+      {
+        char mpew[1024];
+        _internal_disasm((void *)globalSolutions[i],mpew);
+        sprintf(mbuf," + [ADDR:0x%p] [WRITECOUNT:%d] %s\n",(void *)globalSolutions[i],globalSolutions_writeCount[i],mpew);
+				outString_i(hPipe,mbuf);
+      }
+      __except(TRUE)
+      {
+        sprintf(mbuf," + [ADDR:0x%p] [WRITECOUNT:%d] NO DISASSEMBLY\n",(void *)globalSolutions[i],globalSolutions_writeCount[i]);
+				outString_i(hPipe,mbuf);
+      }
+    }
+    
+    /*
 		char tempBuf[15];       // temp buf
+    
 		int currentHeader = 0;
 		DISASM *d = (DISASM *)malloc(sizeof(DISASM));
 		for ( i = 0; i < 1024 ; i++)
@@ -614,8 +666,9 @@ int cs_m_finish_who_writes_to(lua_State *L)
 				sprintf(mbuf," + [ADDR:0x%p] [WRITECOUNT:%d] NO DISASSEMBLY\n",(void *)globalSolutions[i],globalSolutions_writeCount[i]);
 				outString_i(hPipe,mbuf);
 			}
-		}
-		free(d);
+      */
+		// }
+		// free(d);
 	}
 
 	sprintf(mbuf," [NFO] unprotected %d threads, %d results [vehTriggered = %d]\n",totalThreads,i,vehTriggered);

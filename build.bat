@@ -62,7 +62,7 @@ IF [%1]==[shackle32] cl /I modules /Zi /c /I lua53 /EHsc /Fomodules/ptrscan32.ob
 IF [%1]==[shackle32] cl /I modules /Zi /c /I lua53 /EHsc /Fomodules/lua_socket32.obj /Tc modules/lua_socket.c
 IF [%1]==[shackle32] cl /I modules /Zi /c /EHsc /I lua53 /Fomodules/search32.obj /Tc modules/search.c
 IF [%1]==[shackle32] cl /I modules /Zi /c /EHsc /I lua53 /Fomodules/vtable32.obj /Tc modules/vtable.c
-IF [%1]==[shackle32] cl /I modules /Zi /c /I beainclude /EHsc /I lua53 /Fomodules/pcontrol32.obj /Tp modules/pcontrol.c
+IF [%1]==[shackle32] cl /I modules /Zi /c /I beainclude /EHsc /I lua53 /Fomodules/pcontrol32.obj /I capstone/include /Tp modules/pcontrol.c
 IF [%1]==[shackle32] cl /I modules /D WIN_X86 /Zi /c /I beainclude /EHsc /I lua53 /Fomodules/magicmirror32.obj /Tc modules/magicmirror.c
 IF [%1]==[shackle32] cl /I modules /Zi /c /I lua53 /I beainclude /EHsc /Fomodules/darksign32.obj /Tc modules/darksign.c
 IF [%1]==[shackle32] cl /I modules /Zi /c /I lua53 /I beainclude /EHsc /Fomodules/gamestuff32.obj /Tc modules/gamestuff.c

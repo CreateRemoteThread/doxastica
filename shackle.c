@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <windows.h>
 #include <psapi.h>
-#include "beaengine\beaengine.h"
 #include <stdlib.h>
 extern "C"
 {
@@ -31,7 +30,7 @@ extern "C"
 
 int validate_asm(asmBuffer *a);
 
-csh capstoneHandle;
+
 
 extern "C" FILE _iob[];
 
@@ -403,6 +402,14 @@ void hook(UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress)
   char *mbuf = (char *)VirtualAlloc(NULL,1024,MEM_RESERVE | MEM_COMMIT,PAGE_READWRITE);
   int i =0;
   
+  csh capstoneHandle;
+
+#if ARCHI == 64
+  cs_open(CS_ARCH_X86, CS_MODE_64, &capstoneHandle);
+#else
+  cs_open(CS_ARCH_X86, CS_MODE_32, &capstoneHandle);
+#endif
+  
   cs_insn *insn;
 	size_t count;
   count = cs_disasm(capstoneHandle, (const uint8_t *) addressTo, FUNCTION_PATCHLEN + 15, (uint64_t)convertAddress, 0, &insn);
@@ -424,6 +431,8 @@ void hook(UINT_PTR addressFrom, UINT_PTR addressTo, UINT_PTR *saveAddress)
       shortCutSize = totalSize;
     }
   }
+  
+  cs_close(&capstoneHandle);
   
   if(totalSize < FUNCTION_PATCHLEN)
   {
@@ -623,11 +632,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL,DWORD fdwReason, LPVOID lpvReserved)
         init = 1;
 		SYSTEMTIME lt = {0};
 		char *fnameBuf[1024];
-    #if ARCHI == 64
-      cs_open(CS_ARCH_X86, CS_MODE_64, &capstoneHandle);
-    #else
-      cs_open(CS_ARCH_X86, CS_MODE_32, &capstoneHandle);
-    #endif
+
 
 		GetLocalTime(&lt);
 		/*
@@ -2456,6 +2461,14 @@ static int cs_disassemble(lua_State *L)
   
   unsigned long long convertAddress = 0;
   
+  csh capstoneHandle;
+
+  #if ARCHI == 64
+    cs_open(CS_ARCH_X86, CS_MODE_64, &capstoneHandle);
+  #else
+    cs_open(CS_ARCH_X86, CS_MODE_32, &capstoneHandle);
+  #endif
+    
   int i = 0;
   for(i = 0;i < size;i++)
   {
@@ -2476,6 +2489,8 @@ static int cs_disassemble(lua_State *L)
       currentHeader += insn[0].size;
     }
   }
+  
+  cs_close(&capstoneHandle);
 
 	return 0;
 }
