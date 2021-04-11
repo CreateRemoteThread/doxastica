@@ -7,11 +7,9 @@ IF NOT EXIST lua64 MKDIR lua64
 
 cd src
 
-IF [%1]==[prereqs64] call build.bat bea64
 IF [%1]==[prereqs64] call build.bat xed64
 IF [%1]==[prereqs64] call build.bat lua64
 
-IF [%1]==[prereqs32] call build.bat bea32
 IF [%1]==[prereqs32] call build.bat xed32
 IF [%1]==[prereqs32] call build.bat lua32
 
@@ -22,6 +20,20 @@ IF [%1]==[bins32] call build.bat peek
 IF [%1]==[bins64] call build.bat shackle64
 IF [%1]==[bins64] call build.bat ldr64
 IF [%1]==[bins64] call build.bat peek
+
+IF [%1]==[capstone32] cd capstone
+IF [%1]==[capstone32] cl /DCAPSTONE_HAS_X86 /DCAPSTONE_USE_SYS_DYN_MEM /I include /c *.c
+IF [%1]==[capstone32] cl /DCAPSTONE_HAS_X86 /DCAPSTONE_USE_SYS_DYN_MEM /I include /c arch/X86/*.c
+IF [%1]==[capstone32] cd ..
+IF [%1]==[capstone32] move capstone\*.obj capstone32\
+IF [%1]==[capstone32] move capstone\arch\X86\*.obj capstone32\
+
+IF [%1]==[capstone64] cd capstone
+IF [%1]==[capstone64] cl /DCAPSTONE_HAS_X86 /DCAPSTONE_USE_SYS_DYN_MEM /I include /c *.c
+IF [%1]==[capstone64] cl /DCAPSTONE_HAS_X86 /DCAPSTONE_USE_SYS_DYN_MEM /I include /c arch/X86/*.c
+IF [%1]==[capstone64] cd ..
+IF [%1]==[capstone64] move capstone\*.obj capstone64\
+IF [%1]==[capstone64] move capstone\arch\X86\*.obj capstone64\
 
 IF [%1]==[ldr64] del ldr64.exe
 IF [%1]==[ldr64] cl /I modules /D ARCHI_64 /Zi /c /Foldr64.obj /Tp ldr.c
@@ -48,16 +60,12 @@ IF [%1]==[shackle32] cl /I modules /Zi /c /I lua53 /EHsc /Fomodules/ptrscan32.ob
 IF [%1]==[shackle32] cl /I modules /Zi /c /I lua53 /EHsc /Fomodules/lua_socket32.obj /Tc modules/lua_socket.c
 IF [%1]==[shackle32] cl /I modules /Zi /c /EHsc /I lua53 /Fomodules/search32.obj /Tc modules/search.c
 IF [%1]==[shackle32] cl /I modules /Zi /c /EHsc /I lua53 /Fomodules/vtable32.obj /Tc modules/vtable.c
-IF [%1]==[shackle32] cl /I modules /Zi /c /I beainclude /EHsc /I lua53 /Fomodules/pcontrol32.obj /Tp modules/pcontrol.c
+IF [%1]==[shackle32] cl /I modules /Zi /c /I beainclude /EHsc /I lua53 /Fomodules/pcontrol32.obj /I capstone/include /Tp modules/pcontrol.c
 IF [%1]==[shackle32] cl /I modules /D WIN_X86 /Zi /c /I beainclude /EHsc /I lua53 /Fomodules/magicmirror32.obj /Tc modules/magicmirror.c
 IF [%1]==[shackle32] cl /I modules /Zi /c /I lua53 /I beainclude /EHsc /Fomodules/darksign32.obj /Tc modules/darksign.c
 IF [%1]==[shackle32] cl /I modules /Zi /c /I lua53 /I beainclude /EHsc /Fomodules/gamestuff32.obj /Tc modules/gamestuff.c
-IF [%1]==[shackle32] cl /I modules /Zi /c /I lua53 /I beainclude /EHsc /Fomodules/shackle32.obj /Tp shackle.c
+IF [%1]==[shackle32] cl /I modules /Zi /c /I lua53 /I beainclude /EHsc /Fomodules/shackle32.obj /I capstone/include /Tp shackle.c
 IF [%1]==[shackle32] link @utils/link32.link
-
-IF [%1]==[bea32] cd beasrc
-IF [%1]==[bea32] cl /Zi /c /I ../beainclude /FoBeaEngine32.obj /Tc BeaEngine.c
-IF [%1]==[bea32] cd ..
 
 IF [%1]==[lua32] cd lua53 
 IF [%1]==[lua32] cl /D LUA_COMPAT_5_2 /D LUA_BUILD_AS_DLL /c /EHsc /Tc *.c
@@ -72,10 +80,6 @@ IF [%1]==[lua64] del lua.obj
 IF [%1]==[lua64] del luac.obj
 IF [%1]==[lua64] cd ..
 IF [%1]==[lua64] move lua53\*.obj lua64\
-
-IF [%1]==[bea64] cd beasrc
-IF [%1]==[bea64] cl /Zi /c /I ../beainclude /FoBeaEngine64.obj /Tc BeaEngine.c
-IF [%1]==[bea64] cd ..
 
 IF [%1]==[test64] cl /Zi /c /Tc modules/test64.c
 IF [%1]==[test64] link /out:test64.exe test64.obj user32.lib
