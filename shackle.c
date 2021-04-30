@@ -16,6 +16,7 @@ extern "C"
 #include "pcontrol.h"
 extern "C"
 {
+#include "comms.h"
 #include "search.h"
 #include "ptrscan.h"
 #include "gamestuff.h"
@@ -23,15 +24,13 @@ extern "C"
 #include "wincrypt.h"
 #include "lua_socket.h"
 #include "magicmirror.h"
+#include "comms.h"
 #include "darksign.h"
 #include "capstone/capstone.h"
 }
 #include "xedparse\src\XEDParse.h"
 
 int validate_asm(asmBuffer *a);
-
-
-
 extern "C" FILE _iob[];
 
 extern "C" FILE * __cdecl __iob_func(void)
@@ -3005,14 +3004,6 @@ DWORD WINAPI hotkeyThread(LPVOID param)
 		}
 	}
 	__unregisterThread(GetCurrentThreadId());
-}
-
-extern "C" void outString(HANDLE hPipe, char *thisMsg)
-{
-	DWORD bytesWritten = 0;
-	WriteFile(hPipe,thisMsg,strlen(thisMsg) + 1,&bytesWritten,NULL);
-	OutputDebugString(thisMsg);
-	return;
 }
 
 char *shortName(char *fullName)

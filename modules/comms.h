@@ -1,0 +1,1 @@
+void outString(HANDLE hPipe, char *thisMsg);

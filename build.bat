@@ -44,6 +44,7 @@ IF [%1]==[ldr32] cl /I modules /Zi /c /Foldr32.obj /Tp ldr.c
 IF [%1]==[ldr32] link /OPT:REF /OPT:ICF /INCREMENTAL:NO /DEBUG /out:ldr32.exe ldr32.obj user32.lib
 
 IF [%1]==[shackle64] del shackle64.dll
+IF [%1]==[shackle64] cl /I modules /D ARCHI_64 /Zi /c /I lua53 /EHsc /Fomodules/comms64.obj /Tc modules/comms.c
 IF [%1]==[shackle64] cl /I modules /D ARCHI_64 /Zi /c /I lua53 /EHsc /Fomodules/ptrscan64.obj /Tc modules/ptrscan.c
 IF [%1]==[shackle64] cl /I modules /Zi /c /I lua53 /EHsc /Fomodules/lua_socket64.obj /Tc modules/lua_socket.c
 IF [%1]==[shackle64] cl /I modules /D ARCHI_64 /Zi /c /EHsc /I lua53 /Fomodules/search64.obj /Tc modules/search.c
@@ -56,6 +57,7 @@ IF [%1]==[shackle64] cl /I modules /D ARCHI_64 /Zi /c /I lua53 /I beainclude /EH
 IF [%1]==[shackle64] link @utils/link64.link
 
 IF [%1]==[shackle32] del shackle32.dll modules\shackle32.obj modules\lua_socket32.obj modules\vtable32.obj modules\ptrscan32.obj modules\search32.obj modulesspcontrol32.obj modulessmagicmirror32.obj moduless\darksign32.obj
+IF [%1]==[shackle32] cl /I modules /Zi /c /I lua53 /EHsc /Fomodules/comms32.obj /Tc modules/comms.c
 IF [%1]==[shackle32] cl /I modules /Zi /c /I lua53 /EHsc /Fomodules/ptrscan32.obj /Tc modules/ptrscan.c
 IF [%1]==[shackle32] cl /I modules /Zi /c /I lua53 /EHsc /Fomodules/lua_socket32.obj /Tc modules/lua_socket.c
 IF [%1]==[shackle32] cl /I modules /Zi /c /EHsc /I lua53 /Fomodules/search32.obj /Tc modules/search.c
